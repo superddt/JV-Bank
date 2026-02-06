@@ -279,6 +279,15 @@
                         </div>
                     </label>
                 </div>
+
+                <!-- Conditional Back Button form Admin -->
+                <div id="kid-nav-actions" class="hidden">
+                    <button onclick="initAdminView()"
+                        class="flex items-center gap-2 px-4 py-3 bg-surface-dark border border-border-dark rounded-lg hover:bg-slate-700 transition-colors text-white font-bold text-sm">
+                        <span class="material-symbols-outlined">dashboard</span>
+                        Back to Admin
+                    </button>
+                </div>
             </div>
         </header>
 
@@ -611,9 +620,10 @@
                 const changeSign = monthChange >= 0 ? "+" : "";
 
                 const card = document.createElement("div");
-                card.className = "bg-surface-dark rounded-xl shadow-lg border border-border-dark p-5 flex flex-col justify-center group hover:border-blue-500/50 transition-colors relative overflow-hidden";
+                card.className = "bg-surface-dark rounded-xl shadow-lg border border-border-dark p-5 flex flex-col justify-between group hover:border-blue-500/50 transition-colors relative overflow-hidden";
                 card.innerHTML = `
                     <div class="absolute right-0 top-0 w-24 h-24 bg-blue-500/5 rounded-bl-full -mr-4 -mt-4 z-0"></div>
+                    
                     <div class="flex items-center gap-3 z-10 mb-4">
                         <div class="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center text-xl font-bold text-white border-2 border-slate-600 shadow-md">
                             ${user.name[0]}
@@ -623,15 +633,23 @@
                             <p class="text-2xl font-bold text-text-main-dark">${formatCurrency(user.balance)}</p>
                         </div>
                     </div>
-                    <div class="z-10 bg-slate-900/40 rounded-lg p-3 border border-white/5 space-y-2">
-                        <div class="flex justify-between items-center text-xs">
-                             <span class="text-text-muted-dark">30-Day Change</span>
-                             <span class="${changeClass} font-bold">${changeSign}${formatCurrency(monthChange)}</span>
+
+                    <div class="z-10 space-y-3">
+                        <div class="bg-slate-900/40 rounded-lg p-3 border border-white/5 space-y-2">
+                            <div class="flex justify-between items-center text-xs">
+                                 <span class="text-text-muted-dark">30-Day Change</span>
+                                 <span class="${changeClass} font-bold">${changeSign}${formatCurrency(monthChange)}</span>
+                            </div>
+                            <div class="flex justify-between items-center text-xs border-t border-white/5 pt-2">
+                                 <span class="text-text-muted-dark">Current APY</span>
+                                 <span class="text-primary font-bold">${user.interestRate}%</span>
+                            </div>
                         </div>
-                        <div class="flex justify-between items-center text-xs border-t border-white/5 pt-2">
-                             <span class="text-text-muted-dark">Current APY</span>
-                             <span class="text-primary font-bold">${user.interestRate}%</span>
-                        </div>
+                        
+                        <button onclick="initKidView('${user.id}')" class="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/5 text-xs font-bold text-text-muted-dark hover:text-white transition-all">
+                            <span class="material-symbols-outlined text-sm">visibility</span>
+                            View Dashboard
+                        </button>
                     </div>
                 `;
                 balanceContainer.appendChild(card);
@@ -726,6 +744,14 @@
                     renderKidData(e.target.value);
                 };
             });
+
+            // Conditional Back Button
+            const nav = document.getElementById("kid-nav-actions");
+            if (currentRole === 'admin') {
+                nav.classList.remove("hidden");
+            } else {
+                nav.classList.add("hidden");
+            }
         }
 
         function renderKidData(kidId) {
@@ -743,6 +769,9 @@
             const myTxs = txsData.filter(t => t.childId === kidId).slice(0, 20);
             renderActivityList("kid-activity-list", myTxs, false);
         }
+
+        // Expose to window for admin button
+        window.initKidView = initKidView;
 
         // ============================================
         // 6. SHARED UTILS
@@ -799,12 +828,16 @@
         }
 
         // Auto Interest
+        let interestCheckedThisSession = false;
+
         async function checkAutoInterest() {
-            // Only run if admin? Or anyone? 
-            // Ideally only Admin triggers this write, but to ensure it happens, maybe anyone opening the app checks.
-            // Safety: strictly check date.
+            if (interestCheckedThisSession) return; // Prevent loop in single session
+
             const today = new Date();
             if (today.getDate() < 2) return; // Only 2nd onwards
+
+            // Mark checked immediately to prevent races
+            interestCheckedThisSession = true;
 
             // Loop users
             for (const uid of Object.keys(usersData)) {

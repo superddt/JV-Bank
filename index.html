@@ -391,7 +391,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, orderBy, serverTimestamp, runTransaction, getDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, orderBy, serverTimestamp, runTransaction, getDoc, deleteDoc, writeBatch, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // ============================================
         // 1. FIREBASE CONFIG
@@ -581,6 +581,23 @@
 
             // Grab first user's rate for global input if not focused
             const usersList = Object.values(usersData);
+
+            // Empty State / Seed Prompt
+            if (usersList.length === 0) {
+                balanceContainer.innerHTML = `
+                    <div class="col-span-1 md:col-span-2 flex flex-col items-center justify-center p-8 bg-surface-dark rounded-xl border border-dashed border-border-dark text-text-muted-dark">
+                        <span class="material-symbols-outlined text-4xl mb-2">database</span>
+                        <p class="mb-4">No user records found in Firestore.</p>
+                        <button onclick="seedDatabase()" class="px-6 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg font-bold transition-colors">
+                            Initialize Defaults (Chenn & Honn)
+                        </button>
+                    </div>
+                 `;
+                // Don't render empty activity list potentially
+                renderActivityList("admin-activity-list", txsData.slice(0, 50), true);
+                return;
+            }
+
             if (usersList.length > 0) {
                 const input = document.getElementById("global-apy-input");
                 if (document.activeElement !== input) {
@@ -658,7 +675,7 @@
                 try {
                     await runTransaction(db, async (t) => {
                         const userDoc = await t.get(userRef);
-                        if (!userDoc.exists()) throw "User " + childId + " not found";
+                        if (!userDoc.exists()) throw new Error("User " + childId + " not found. Please create the user in Firestore first or click 'Seed Defaults'.");
 
                         const newBalance = type === 'withdrawal'
                             ? userDoc.data().balance - amount
@@ -686,7 +703,7 @@
 
                 } catch (err) {
                     console.error("Tx Failed:", err);
-                    alert("Error: " + err.message);
+                    alert("Error: " + (err.message || err));
                 }
             });
         }
@@ -730,6 +747,37 @@
         // ============================================
         // 6. SHARED UTILS
         // ============================================
+        // Shared Utils
+        window.seedDatabase = async function () {
+            if (!confirm("Create default records for Chenn and Honn?")) return;
+            const batch = writeBatch(db);
+
+            // Chenn
+            batch.set(doc(db, "users", "chenn"), {
+                name: "Chenn",
+                balance: 124.50,
+                email: "chennlee2012@gmail.com",
+                interestRate: 3.5,
+                lastInterestDate: null
+            });
+
+            // Honn
+            batch.set(doc(db, "users", "honn"), {
+                name: "Honn",
+                balance: 985.25,
+                email: "honnchilee@gmail.com",
+                interestRate: 3.5,
+                lastInterestDate: null
+            });
+
+            try {
+                await batch.commit();
+                alert("Database Initialized! You can now add transactions.");
+            } catch (e) {
+                alert("Initialization failed: " + e.message);
+            }
+        }
+
         function getLast30DaysChange(childId) {
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -893,7 +941,7 @@
 
                 await runTransaction(db, async (t) => {
                     const userDoc = await t.get(userRef);
-                    if (!userDoc.exists()) throw "User not found";
+                    if (!userDoc.exists()) throw new Error("User not found");
 
                     // Revert logic: If it was deposit, subtract. If withdrawal, add.
                     let revAmount = 0;
@@ -906,7 +954,7 @@
                 closeEditModal();
             } catch (e) {
                 console.error(e);
-                alert("Delete failed: " + e.message);
+                alert("Delete failed: " + (e.message || e));
             }
         }
 

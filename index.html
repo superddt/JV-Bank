@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>JV Bank - Family Allowance System</title>
+    <title>JV Bank</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
     <style type="text/tailwindcss">
@@ -19,16 +19,20 @@
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         }
-        /* Hide scrollbar for Chrome, Safari and Opera */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
         }
-        /* Hide scrollbar for IE, Edge and Firefox */
-        .no-scrollbar {
-            -ms-overflow-style: none;  /* IE and Edge */
-            scrollbar-width: none;  /* Firefox */
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b;
         }
-        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
     </style>
     <script>
         tailwind.config = {
@@ -63,7 +67,6 @@
             },
         };
     </script>
-    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
         rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
@@ -73,46 +76,60 @@
 <body
     class="bg-background-dark font-display text-text-main-dark antialiased min-h-screen flex flex-col transition-colors duration-200">
 
-    <!-- LOGIN VIEW -->
+    <!-- LOGIN View (Root) -->
     <div id="login-view" class="flex-1 flex flex-col items-center justify-center p-4">
         <div class="bg-surface-dark p-8 rounded-2xl shadow-2xl border border-border-dark w-full max-w-md text-center">
             <div class="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span class="material-symbols-outlined text-4xl text-primary">savings</span>
             </div>
             <h1 class="text-3xl font-bold mb-2">JV Bank</h1>
-            <p class="text-text-muted-dark mb-8">Family Allowance Management</p>
+            <p class="text-text-muted-dark mb-8">Family Allowance System</p>
 
-            <button id="google-login-btn"
-                class="w-full bg-white text-gray-900 hover:bg-gray-100 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-3 transition-colors">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5"
-                    alt="Google">
-                Sign in with Google
+            <button id="login-btn"
+                class="w-full flex items-center justify-center gap-3 bg-white text-gray-900 border border-gray-300 hover:bg-gray-50 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-3 transition-colors">
+                <img class="w-5 h-5" src="https://www.svgrepo.com/show/475656/google-color.svg" loading="lazy"
+                    alt="google logo">
+                <span>Sign in with Google</span>
             </button>
-            <p id="login-error" class="hidden text-danger mt-4 text-sm"></p>
+            <p class="text-xs text-text-muted-dark mt-6">Authorized Access Only</p>
         </div>
     </div>
 
-    <!-- ADMIN VIEW (Parents) -->
+    <!-- ADMIN VIEW -->
     <div id="admin-view" class="hidden flex-1 flex flex-col md:flex-row h-screen overflow-hidden">
-        <main class="flex-1 p-4 md:p-8 overflow-y-auto w-full max-w-7xl mx-auto">
-            <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+        <main class="flex-1 p-4 md:p-8 overflow-y-auto w-full max-w-7xl mx-auto flex flex-col">
+            <!-- Header -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 shrink-0">
                 <div>
                     <h1 class="text-2xl font-bold text-text-main-dark">Admin Overview</h1>
                     <p class="text-text-muted-dark mt-1">Manage savings for Chenn and Honn.</p>
                 </div>
-                <button id="admin-logout-btn"
-                    class="self-start md:self-auto px-4 py-2 bg-surface-lighter hover:bg-slate-600 rounded-lg text-sm font-medium transition-colors">Logout</button>
+                <div class="flex items-center gap-4">
+                    <!-- User Profile -->
+                    <div class="flex items-center gap-2">
+                        <img id="admin-avatar" class="w-8 h-8 rounded-full border border-border-dark" src="" alt="">
+                        <span id="admin-name" class="text-sm font-medium text-text-main-dark hidden md:block"></span>
+                    </div>
+                    <!-- Global APY Setting -->
+                    <div class="flex items-center gap-2 bg-surface-dark px-3 py-2 rounded-lg border border-border-dark">
+                        <span class="text-xs text-text-muted-dark font-bold uppercase">APY (%)</span>
+                        <input type="number" id="global-apy-input" step="0.1"
+                            class="w-16 bg-slate-900 border border-border-dark rounded px-2 py-1 text-sm font-bold text-primary focus:ring-primary focus:border-primary">
+                    </div>
+                </div>
             </div>
 
             <!-- Balances Grid -->
-            <div id="admin-balances" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div id="admin-balances" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 shrink-0">
                 <!-- Injected via JS -->
+                <div class="col-span-2 text-center text-text-muted-dark py-8">Loading balances...</div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Main Content Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 min-h-0">
                 <!-- Transaction Form -->
                 <div
-                    class="lg:col-span-2 bg-surface-dark rounded-xl shadow-lg border border-border-dark overflow-hidden">
+                    class="lg:col-span-2 bg-surface-dark rounded-xl shadow-lg border border-border-dark flex flex-col h-fit">
                     <div class="p-6 border-b border-border-dark flex justify-between items-center bg-slate-800/50">
                         <h2 class="text-lg font-semibold flex items-center gap-2 text-text-main-dark">
                             <span class="material-symbols-outlined text-primary">payments</span>
@@ -148,17 +165,24 @@
                             <div>
                                 <label class="block text-sm font-medium text-text-main-dark mb-3">Transaction
                                     Type</label>
-                                <div class="flex p-1 bg-slate-900/50 rounded-lg border border-border-dark" role="group">
-                                    <button type="button" data-type="deposit"
-                                        class="tx-type-btn w-1/2 px-4 py-2.5 text-sm font-semibold text-emerald-400 bg-slate-800 rounded-md border border-emerald-500/30 shadow-sm transition-all flex items-center justify-center gap-2">
-                                        <span class="material-symbols-outlined text-lg">add_circle</span> Deposit
-                                    </button>
-                                    <button type="button" data-type="withdrawal"
-                                        class="tx-type-btn w-1/2 px-4 py-2.5 text-sm font-medium text-text-muted-dark hover:text-red-400 transition-all flex items-center justify-center gap-2">
-                                        <span class="material-symbols-outlined text-lg">remove_circle</span> Withdrawal
-                                    </button>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="type" value="deposit" class="peer sr-only" checked>
+                                        <div
+                                            class="rounded-lg border border-border-dark p-4 bg-slate-900/30 hover:bg-slate-800 peer-checked:border-emerald-500 peer-checked:bg-emerald-900/20 peer-checked:ring-1 peer-checked:ring-emerald-500 transition-all flex items-center justify-center gap-2 text-text-muted-dark peer-checked:text-emerald-400">
+                                            <span class="material-symbols-outlined text-lg">add_circle</span>
+                                            <span class="font-bold">Deposit</span>
+                                        </div>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="type" value="withdrawal" class="peer sr-only">
+                                        <div
+                                            class="rounded-lg border border-border-dark p-4 bg-slate-900/30 hover:bg-slate-800 peer-checked:border-red-500 peer-checked:bg-red-900/20 peer-checked:ring-1 peer-checked:ring-red-500 transition-all flex items-center justify-center gap-2 text-text-muted-dark peer-checked:text-red-400">
+                                            <span class="material-symbols-outlined text-lg">remove_circle</span>
+                                            <span class="font-bold">Withdrawal</span>
+                                        </div>
+                                    </label>
                                 </div>
-                                <input type="hidden" name="type" id="tx-type-input" value="deposit">
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -180,12 +204,12 @@
                                         class="block text-sm font-medium text-text-main-dark mb-2">Category</label>
                                     <select id="category" name="category"
                                         class="block w-full rounded-md border-border-dark bg-slate-900/50 text-white focus:border-primary focus:ring-primary sm:text-sm py-3 px-3">
-                                        <option>Weekly Allowance</option>
-                                        <option>Chore Reward</option>
-                                        <option>Birthday Gift</option>
-                                        <option>Spending</option>
-                                        <option>Interest</option>
-                                        <option>Other</option>
+                                        <option value="Allowance">💰 Allowance</option>
+                                        <option value="Chore Reward">🧹 Chore Reward</option>
+                                        <option value="Birthday Gift">🎁 Birthday Gift</option>
+                                        <option value="Spending">🛒 Spending</option>
+                                        <option value="Interest">📈 Interest</option>
+                                        <option value="Other">📝 Other</option>
                                     </select>
                                 </div>
                             </div>
@@ -206,17 +230,16 @@
                     </div>
                 </div>
 
-                <!-- Recent Activity List (Admin) -->
+                <!-- Recent Activity (Clickable) -->
                 <div
-                    class="lg:col-span-1 bg-surface-dark rounded-xl shadow-lg border border-border-dark flex flex-col h-[600px] lg:h-auto">
+                    class="lg:col-span-1 bg-surface-dark rounded-xl shadow-lg border border-border-dark flex flex-col h-[600px] overflow-hidden">
                     <div class="p-6 border-b border-border-dark bg-slate-800/50">
                         <h3 class="text-lg font-semibold text-text-main-dark">Recent Activity</h3>
+                        <p class="text-xs text-text-muted-dark mt-1">Click item to edit/delete</p>
                     </div>
                     <div id="admin-activity-list" class="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
-                        <!-- Injected via JS -->
-                        <div class="p-8 text-center text-text-muted-dark">Loading activities...</div>
+                        <div class="p-8 text-center text-text-muted-dark">Loading...</div>
                     </div>
-                    <!-- View All Link could go here -->
                 </div>
             </div>
         </main>
@@ -225,14 +248,38 @@
     <!-- KID VIEW -->
     <div id="kid-view" class="hidden flex-1 w-full max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-12 space-y-12">
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div>
-                <h1 class="text-3xl font-bold text-white mb-1.5">
-                    Hi, <span id="kid-name-display" class="text-accent">User!</span> 👋
-                </h1>
-                <p class="text-secondary text-sm">Here's what's happening with your pocket money.</p>
+            <div class="flex items-center gap-4">
+                <img id="kid-avatar" class="w-12 h-12 rounded-full border border-border-dark" src="" alt="">
+                <div>
+                    <h1 class="text-3xl font-bold text-white mb-1.5">
+                        Hi, <span id="kid-name-display" class="text-accent">User!</span> 👋
+                    </h1>
+                    <p class="text-secondary text-sm">Here's what's happening with your pocket money.</p>
+                </div>
             </div>
-            <button id="kid-logout-btn"
-                class="self-start px-6 py-2 bg-slate-700 shadow-sm rounded-lg text-sm font-semibold text-white hover:bg-slate-600 transition-colors">Logout</button>
+            <div class="flex flex-wrap gap-4 items-center">
+                <!-- Card Style Selector -->
+                <div class="flex gap-4">
+                    <label class="cursor-pointer">
+                        <input type="radio" name="kid-view-child" value="chenn" class="peer sr-only">
+                        <div
+                            class="rounded-lg border border-card-border p-3 bg-card-bg hover:bg-slate-700/50 peer-checked:border-primary peer-checked:bg-primary/20 peer-checked:ring-1 peer-checked:ring-primary transition-all flex items-center gap-2">
+                            <span class="font-medium text-white text-sm">Chenn</span>
+                            <span
+                                class="material-symbols-outlined text-primary text-base opacity-0 peer-checked:opacity-100 transition-opacity">check_circle</span>
+                        </div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="kid-view-child" value="honn" class="peer sr-only">
+                        <div
+                            class="rounded-lg border border-card-border p-3 bg-card-bg hover:bg-slate-700/50 peer-checked:border-primary peer-checked:bg-primary/20 peer-checked:ring-1 peer-checked:ring-primary transition-all flex items-center gap-2">
+                            <span class="font-medium text-white text-sm">Honn</span>
+                            <span
+                                class="material-symbols-outlined text-primary text-base opacity-0 peer-checked:opacity-100 transition-opacity">check_circle</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
@@ -247,6 +294,15 @@
                     </div>
                     <p class="text-[11px] font-bold uppercase tracking-[0.15em] text-secondary mb-2">Total Savings</p>
                     <h2 id="kid-balance-display" class="text-6xl font-bold text-white mb-6">...</h2>
+
+                    <!-- 30-Day Change -->
+                    <div class="flex items-center justify-center gap-2 py-4 border-t border-card-border mt-4">
+                        <div class="flex flex-col items-center">
+                            <span id="kid-month-change" class="text-sm font-bold">...</span>
+                            <span class="text-[10px] text-secondary uppercase tracking-widest mt-0.5">Last 30
+                                Days</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -268,18 +324,78 @@
         </div>
     </div>
 
+    <!-- EDIT TRANSACTION MODAL -->
+    <div id="edit-modal"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div
+            class="bg-surface-dark rounded-xl shadow-2xl border border-border-dark w-full max-w-lg overflow-hidden animate-[scaleIn_0.2s_ease-out]">
+            <div class="p-6 border-b border-border-dark bg-slate-800/50 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-white">Edit Transaction</h3>
+                <button onclick="closeEditModal()" class="text-text-muted-dark hover:text-white">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-6">
+                <!-- ID Hidden -->
+                <form id="edit-form" class="space-y-4">
+                    <input type="hidden" name="id" id="edit-id">
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-text-muted-dark mb-1">Type</label>
+                            <select name="type" id="edit-type"
+                                class="w-full bg-slate-900 border border-border-dark rounded-lg p-2.5 text-white">
+                                <option value="deposit">Deposit</option>
+                                <option value="withdrawal">Withdrawal</option>
+                                <option value="interest">Interest</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-text-muted-dark mb-1">Amount</label>
+                            <input type="number" name="amount" id="edit-amount" step="0.01"
+                                class="w-full bg-slate-900 border border-border-dark rounded-lg p-2.5 text-white">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-text-muted-dark mb-1">Description</label>
+                        <input type="text" name="description" id="edit-description"
+                            class="w-full bg-slate-900 border border-border-dark rounded-lg p-2.5 text-white">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-text-muted-dark mb-1">Date</label>
+                        <input type="datetime-local" name="date" id="edit-date"
+                            class="w-full bg-slate-900 border border-border-dark rounded-lg p-2.5 text-white">
+                    </div>
+
+                    <div class="pt-4 flex gap-3">
+                        <button type="button" onclick="deleteCurrentTx()"
+                            class="px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 rounded-lg font-bold transition-colors">
+                            Delete
+                        </button>
+                        <div class="flex-1"></div>
+                        <button type="button" onclick="closeEditModal()"
+                            class="px-4 py-2 text-text-muted-dark hover:text-white transition-colors">Cancel</button>
+                        <button type="submit"
+                            class="px-6 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg font-bold transition-colors">Save
+                            Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 
     <!-- JAVASCRIPT LOGIC -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-        import { getFirestore, collection, query, where, orderBy, limit, getDocs, addDoc, updateDoc, doc, serverTimestamp, increment, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, orderBy, serverTimestamp, runTransaction, getDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // ============================================
-        // 1. CONFIGURATION
+        // 1. FIREBASE CONFIG
         // ============================================
-
-        // TODO: PASTE YOUR FIREBASE CONFIG HERE
         const firebaseConfig = {
             apiKey: "AIzaSyB2ES3CBngIbkBHjuUDgXQ_7gaZ-c1Mo4A",
             authDomain: "jv-bank.firebaseapp.com",
@@ -289,361 +405,552 @@
             appId: "1:333939853017:web:72d6caef2d9d85843ae0c8"
         };
 
-        const PARENTS = [
-            "maxidea.tw@gmail.com",
-            "vickychang1220@gmail.com"
-        ];
-
-        const KIDS = [
-            { email: "chennlee2012@gmail.com", id: "chenn", name: "Chenn" },
-            { email: "honnchilee@gmail.com", id: "honn", name: "Honn" }
-        ];
-
-        // Developer override for localhost testing if config is empty
-        if (!firebaseConfig.apiKey) {
-            console.error("Firebase Config is missing! Please edit index.html and add your config.");
-            document.getElementById("login-error").innerText = "Configuration Error: Firebase config missing.";
-            document.getElementById("login-error").classList.remove("hidden");
+        let app, auth, db;
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        } catch (e) {
+            console.error("Firebase init failed. User likely needs to update config.");
         }
 
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const provider = new GoogleAuthProvider();
+        const ALLOWED_ADMINS = ["maxidea.tw@gmail.com", "vickychang1220@gmail.com"];
+        const ALLOWED_KIDS = {
+            "chennlee2012@gmail.com": "chenn",
+            "honnchilee@gmail.com": "honn"
+        };
+
+        let currentUserEmail = null;
+        let currentRole = null; // 'admin' | 'kid'
+        let kidIdMap = null; // Stored kid ID if role is kid
 
         // ============================================
-        // 2. STATE & ROUTING
+        // 2. AUTH & ROUTING
         // ============================================
-
+        const loginBtn = document.getElementById("login-btn");
         const views = {
             login: document.getElementById("login-view"),
             admin: document.getElementById("admin-view"),
             kid: document.getElementById("kid-view")
         };
 
-        function switchView(viewName) {
+        loginBtn.addEventListener("click", async () => {
+            const provider = new GoogleAuthProvider();
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (e) {
+                alert("Login failed: " + e.message);
+                console.error(e);
+            }
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUserEmail = user.email;
+                checkAccess(user);
+            } else {
+                currentUserEmail = null;
+                showView("login");
+            }
+        });
+
+        function checkAccess(user) {
+            // Admin Check
+            if (ALLOWED_ADMINS.includes(user.email)) {
+                currentRole = 'admin';
+                document.getElementById("admin-avatar").src = user.photoURL;
+                document.getElementById("admin-name").innerText = user.displayName;
+
+                initAdminView();
+                return;
+            }
+
+            // Kid Check
+            if (ALLOWED_KIDS[user.email]) {
+                currentRole = 'kid';
+                kidIdMap = ALLOWED_KIDS[user.email];
+
+                document.getElementById("kid-avatar").src = user.photoURL;
+                // Default to their own view
+                initKidView(kidIdMap);
+                return;
+            }
+
+            // Not Allowed
+            alert("Access Denied: Your email is not whitelisted.");
+            signOut(auth);
+        }
+
+        function showView(viewName) {
             Object.values(views).forEach(el => el.classList.add("hidden"));
             views[viewName].classList.remove("hidden");
         }
 
-        let currentUser = null;
-        let unsubscribeListeners = [];
-
-        onAuthStateChanged(auth, async (user) => {
-            // Clear previous listeners
-            unsubscribeListeners.forEach(unsub => unsub());
-            unsubscribeListeners = [];
-
-            if (user || window.location.hash === "#admin" || window.location.hash === "#kid") {
-                // Check Debug Overrides
-                if (window.location.hash === "#admin") {
-                    currentUser = { email: "maxidea.tw@gmail.com", displayName: "Debug Admin" };
-                    console.log("Debug Mode: Admin");
-                    initAdminView();
-                    return;
-                }
-                if (window.location.hash === "#kid") {
-                    currentUser = { email: "chennlee2012@gmail.com", displayName: "Debug Kid" };
-                    console.log("Debug Mode: Kid");
-                    const kid = KIDS.find(k => k.id === "chenn") || KIDS[0];
-                    initKidView(kid);
-                    return;
-                }
-
-                currentUser = user;
-                const email = user.email.toLowerCase();
-                console.log("Logged in as:", email);
-
-                if (PARENTS.includes(email)) {
-                    initAdminView();
-                } else {
-                    const kidInfo = KIDS.find(k => k.email === email);
-                    if (kidInfo) {
-                        initKidView(kidInfo);
-                    } else {
-                        alert("Access Denied: Email not in whitelist.");
-                        signOut(auth);
-                    }
-                }
-            } else {
-                currentUser = null;
-                switchView("login");
-            }
-        });
-
         // ============================================
-        // 3. ADMIN LOGIC
+        // 3. DATA LAYER (Real Firestore)
         // ============================================
+        let unsubUsers = null;
+        let unsubTxs = null;
 
-        function initAdminView() {
-            switchView("admin");
-            setupTransactionForm();
+        let usersData = {};
+        let txsData = [];
 
-            // Listen to both kids' balances
-            ["chenn", "honn"].forEach(childId => {
-                const userDocRef = doc(db, "users", childId);
-                const unsub = onSnapshot(userDocRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        renderAdminBalanceCard(childId, docSnap.data());
-                    } else {
-                        // Initialize doc if missing (first time run helper)
-                        // CAUTION: This writes to DB. 
-                        // In production, setup users manually or via script.
-                        console.log(`User ${childId} missing, creating default.`);
-                    }
+        function subscribeToData(cb) {
+            if (unsubUsers) unsubUsers();
+            if (unsubTxs) unsubTxs();
+
+            // Users Listener
+            const userQ = collection(db, "users");
+            unsubUsers = onSnapshot(userQ, (snapshot) => {
+                usersData = {};
+                snapshot.forEach(doc => {
+                    usersData[doc.id] = { id: doc.id, ...doc.data() };
                 });
-                unsubscribeListeners.push(unsub);
+
+                // Trigger auto interest check whenever users load/change (debounce ideally, but simple here)
+                checkAutoInterest();
+
+                // Update UI based on current view
+                refreshCurrentView();
             });
 
-            // Listen to Recent Transactions (Global or both kids)
-            const q = query(collection(db, "transactions"), orderBy("date", "desc"), limit(20));
-            const unsubTx = onSnapshot(q, (snapshot) => {
-                const txs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                renderAdminActivityList(txs);
+            // Transaction Listener
+            const txQ = query(collection(db, "transactions"), orderBy("date", "desc"));
+            unsubTxs = onSnapshot(txQ, (snapshot) => {
+                txsData = [];
+                snapshot.forEach(doc => {
+                    // Convert Timestamp to ISO string for compatibility with existing formatting
+                    const data = doc.data();
+                    let dateStr = "";
+                    if (data.date && data.date.toDate) {
+                        dateStr = data.date.toDate().toISOString();
+                    } else if (data.date) {
+                        dateStr = data.date; // Fallback
+                    }
+                    txsData.push({ id: doc.id, ...data, date: dateStr });
+                });
+                refreshCurrentView();
             });
-            unsubscribeListeners.push(unsubTx);
         }
 
-        function renderAdminBalanceCard(childId, data) {
-            // Find or create container
-            let container = document.getElementById(`balance-card-${childId}`);
-            if (!container) {
-                const wrapper = document.createElement("div");
-                wrapper.className = "bg-surface-dark rounded-xl shadow-lg border border-border-dark p-5 flex items-center gap-4 relative overflow-hidden group hover:border-blue-500/50 transition-colors";
-                wrapper.innerHTML = `
+        function refreshCurrentView() {
+            if (!currentUserEmail) return;
+            const adminView = document.getElementById("admin-view");
+            const kidView = document.getElementById("kid-view");
+
+            if (!adminView.classList.contains("hidden")) {
+                renderAdminData();
+            } else if (!kidView.classList.contains("hidden")) {
+                // Determine which kid is selected via DOM
+                const checked = document.querySelector('input[name="kid-view-child"]:checked');
+                const kId = checked ? checked.value : kidIdMap || "chenn";
+                // Ensure radio matches
+                const radio = document.querySelector(`input[name="kid-view-child"][value="${kId}"]`);
+                if (radio && !radio.checked) radio.checked = true;
+
+                renderKidData(kId);
+            }
+        }
+
+        // ============================================
+        // 4. ADMIN LOGIC
+        // ============================================
+        function initAdminView() {
+            showView("admin");
+            subscribeToData();
+            setupTransactionForm();
+            // Sync APY input from one user (assuming sync) or global?
+            // Firestore data might not be ready instantly. Logic in renderAdminData handles input updates.
+        }
+
+        // APY Helper
+        window.updateGlobalAPY = async function (val) {
+            const numVal = parseFloat(val);
+            // Update ALL users
+            const batch = writeBatch(db);
+            Object.keys(usersData).forEach(uid => {
+                const ref = doc(db, "users", uid);
+                batch.update(ref, { interestRate: numVal });
+            });
+            await batch.commit();
+        }
+
+        function renderAdminData() {
+            const balanceContainer = document.getElementById("admin-balances");
+            balanceContainer.innerHTML = "";
+
+            // Grab first user's rate for global input if not focused
+            const usersList = Object.values(usersData);
+            if (usersList.length > 0) {
+                const input = document.getElementById("global-apy-input");
+                if (document.activeElement !== input) {
+                    input.value = usersList[0].interestRate || 3.5;
+                }
+            }
+
+            usersList.forEach(user => {
+                const monthChange = getLast30DaysChange(user.id);
+                const changeClass = monthChange >= 0 ? "text-emerald-400" : "text-danger";
+                const changeSign = monthChange >= 0 ? "+" : "";
+
+                const card = document.createElement("div");
+                card.className = "bg-surface-dark rounded-xl shadow-lg border border-border-dark p-5 flex flex-col justify-center group hover:border-blue-500/50 transition-colors relative overflow-hidden";
+                card.innerHTML = `
                     <div class="absolute right-0 top-0 w-24 h-24 bg-blue-500/5 rounded-bl-full -mr-4 -mt-4 z-0"></div>
-                    <div class="w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center text-2xl font-bold text-white z-10 border-2 border-slate-600 shadow-md">
-                        ${childId[0].toUpperCase()}
+                    <div class="flex items-center gap-3 z-10 mb-4">
+                        <div class="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center text-xl font-bold text-white border-2 border-slate-600 shadow-md">
+                            ${user.name[0]}
+                        </div>
+                        <div>
+                            <p class="text-xs text-text-muted-dark font-bold uppercase tracking-wider">${user.name}'s Savings</p>
+                            <p class="text-2xl font-bold text-text-main-dark">${formatCurrency(user.balance)}</p>
+                        </div>
                     </div>
-                    <div class="z-10">
-                        <p class="text-sm text-text-muted-dark font-medium uppercase tracking-wider">${childId}'s Savings</p>
-                        <p class="text-3xl font-bold text-text-main-dark mt-1" id="balance-val-${childId}">$0.00</p>
-                        <div class="flex items-center gap-1 mt-2 text-emerald-400 text-sm">
-                            <span class="material-symbols-outlined text-sm">trending_up</span>
-                            <span>Interest: ${data.interestRate || 0}%</span>
+                    <div class="z-10 bg-slate-900/40 rounded-lg p-3 border border-white/5 space-y-2">
+                        <div class="flex justify-between items-center text-xs">
+                             <span class="text-text-muted-dark">30-Day Change</span>
+                             <span class="${changeClass} font-bold">${changeSign}${formatCurrency(monthChange)}</span>
+                        </div>
+                        <div class="flex justify-between items-center text-xs border-t border-white/5 pt-2">
+                             <span class="text-text-muted-dark">Current APY</span>
+                             <span class="text-primary font-bold">${user.interestRate}%</span>
                         </div>
                     </div>
                 `;
-                wrapper.id = `balance-card-${childId}`;
-                document.getElementById("admin-balances").appendChild(wrapper);
-                container = wrapper;
-            }
-            document.getElementById(`balance-val-${childId}`).innerText = formatCurrency(data.balance || 0);
+                balanceContainer.appendChild(card);
+            });
+
+            renderActivityList("admin-activity-list", txsData.slice(0, 50), true);
         }
 
-        function renderAdminActivityList(transactions) {
-            const container = document.getElementById("admin-activity-list");
+        function setupTransactionForm() {
+            const form = document.getElementById("transaction-form");
+            const newForm = form.cloneNode(true);
+            form.parentNode.replaceChild(newForm, form);
+
+            // Smart Note Logic - LocalStorage is perfect for this client-pref feature
+            const catSelect = newForm.querySelector("#category");
+            const noteInput = newForm.querySelector("#reason");
+
+            catSelect.addEventListener("change", (e) => {
+                const val = e.target.value;
+                const savedNote = localStorage.getItem("note_" + val);
+                noteInput.value = savedNote || "";
+            });
+            catSelect.dispatchEvent(new Event('change'));
+
+            newForm.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const formData = new FormData(newForm);
+                const type = formData.get("type");
+                const childId = formData.get("child");
+                const amount = parseFloat(formData.get("amount"));
+                const category = formData.get("category");
+                const desc = formData.get("reason");
+
+                // Save Note
+                localStorage.setItem("note_" + category, desc);
+
+                // Atomic Transaction
+                const userRef = doc(db, "users", childId);
+                const txRef = collection(db, "transactions");
+
+                try {
+                    await runTransaction(db, async (t) => {
+                        const userDoc = await t.get(userRef);
+                        if (!userDoc.exists()) throw "User " + childId + " not found";
+
+                        const newBalance = type === 'withdrawal'
+                            ? userDoc.data().balance - amount
+                            : userDoc.data().balance + amount;
+
+                        t.update(userRef, { balance: newBalance });
+
+                        // Add doc (we can't use addDoc inside runTransaction directly in v9 cleanly for IDs? 
+                        // Actually we can just create a ref)
+                        const newTxRef = doc(txRef);
+                        t.set(newTxRef, {
+                            childId,
+                            amount,
+                            type,
+                            category,
+                            description: desc,
+                            date: serverTimestamp(),
+                            createdBy: currentUserEmail
+                        });
+                    });
+
+                    alert("Transaction Success!");
+                    newForm.reset();
+                    catSelect.dispatchEvent(new Event('change'));
+
+                } catch (err) {
+                    console.error("Tx Failed:", err);
+                    alert("Error: " + err.message);
+                }
+            });
+        }
+
+        // ============================================
+        // 5. KID LOGIC
+        // ============================================
+        function initKidView(targetKidId) {
+            showView("kid");
+            subscribeToData();
+
+            const radio = document.querySelector(`input[name="kid-view-child"][value="${targetKidId}"]`);
+            if (radio) radio.checked = true;
+
+            // Manual Render call in case data is already there and snapshot didn't fire recently
+            renderKidData(targetKidId);
+
+            document.querySelectorAll('input[name="kid-view-child"]').forEach(r => {
+                r.onchange = (e) => {
+                    renderKidData(e.target.value);
+                };
+            });
+        }
+
+        function renderKidData(kidId) {
+            const user = usersData[kidId];
+            if (!user) return;
+
+            document.getElementById("kid-name-display").innerText = user.name + "!";
+            document.getElementById("kid-balance-display").innerText = formatCurrency(user.balance);
+
+            const monthChange = getLast30DaysChange(kidId);
+            const changeDisplay = document.getElementById("kid-month-change");
+            changeDisplay.innerText = (monthChange >= 0 ? "+" : "") + formatCurrency(monthChange);
+            changeDisplay.className = "text-sm font-bold " + (monthChange >= 0 ? "text-emerald-400" : "text-danger");
+
+            const myTxs = txsData.filter(t => t.childId === kidId).slice(0, 20);
+            renderActivityList("kid-activity-list", myTxs, false);
+        }
+
+        // ============================================
+        // 6. SHARED UTILS
+        // ============================================
+        function getLast30DaysChange(childId) {
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            let change = 0;
+
+            txsData.filter(t => t.childId === childId).forEach(tx => {
+                const txDate = new Date(tx.date);
+                if (txDate >= thirtyDaysAgo) {
+                    // Logic check: Withdrawals reduce balance, Deposits increase
+                    // But 'Change' is about Net Flow
+                    if (tx.type === 'deposit' || tx.type === 'interest') {
+                        change += tx.amount;
+                    } else {
+                        change -= tx.amount;
+                    }
+                }
+            });
+            return change;
+        }
+
+        // Auto Interest
+        async function checkAutoInterest() {
+            // Only run if admin? Or anyone? 
+            // Ideally only Admin triggers this write, but to ensure it happens, maybe anyone opening the app checks.
+            // Safety: strictly check date.
+            const today = new Date();
+            if (today.getDate() < 2) return; // Only 2nd onwards
+
+            // Loop users
+            for (const uid of Object.keys(usersData)) {
+                const user = usersData[uid];
+                const lastToken = user.lastInterestDate; // String or timestamp
+                // Parse last date
+                let lastDate = null;
+                if (lastToken) {
+                    // Could be Firestore Timestamp or string
+                    if (lastToken.toDate) lastDate = lastToken.toDate();
+                    else lastDate = new Date(lastToken);
+                }
+
+                const alreadyPaid = lastDate &&
+                    lastDate.getMonth() === today.getMonth() &&
+                    lastDate.getFullYear() === today.getFullYear();
+
+                if (!alreadyPaid && user.interestRate > 0) {
+                    const rawInterest = user.balance * (user.interestRate / 100 / 12);
+                    const interest = parseFloat(rawInterest.toFixed(2));
+                    if (interest > 0) {
+                        console.log("Paying Interest for " + user.name);
+                        // Perform Write
+                        try {
+                            const batch = writeBatch(db);
+                            // 1. Transaction
+                            const txRef = doc(collection(db, "transactions"));
+                            batch.set(txRef, {
+                                childId: uid,
+                                amount: interest,
+                                type: 'interest',
+                                category: 'Interest',
+                                description: 'Monthly Interest',
+                                date: serverTimestamp(),
+                                createdBy: 'system'
+                            });
+                            // 2. User Update
+                            const userRef = doc(db, "users", uid);
+                            batch.update(userRef, {
+                                balance: user.balance + interest,
+                                lastInterestDate: serverTimestamp() // Use server time
+                            });
+                            await batch.commit();
+                        } catch (e) {
+                            console.error("Auto-pay error", e);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Display Utils
+        function formatCurrency(num) {
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num || 0);
+        }
+        function formatDate(isoString) {
+            if (!isoString) return "";
+            const date = new Date(isoString);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+        function getCategoryIcon(category) {
+            if (!category) return 'payments';
+            if (category.includes('Allowance')) return 'savings';
+            if (category.includes('Chore')) return 'cleaning_services';
+            if (category.includes('Gift')) return 'card_giftcard';
+            if (category.includes('Spending')) return 'shopping_cart';
+            if (category.includes('Interest')) return 'trending_up';
+            return 'payments';
+        }
+
+        function renderActivityList(containerId, transactions, isEditable = false) {
+            const container = document.getElementById(containerId);
             if (transactions.length === 0) {
-                container.innerHTML = `<div class="p-4 text-center text-text-muted-dark text-sm">No transactions yet.</div>`;
+                container.innerHTML = `<div class="p-8 text-center text-text-muted-dark opacity-50">No transactions found.</div>`;
                 return;
             }
 
             container.innerHTML = transactions.map(tx => {
                 const isDeposit = tx.type === 'deposit' || tx.type === 'interest';
                 const colorClass = isDeposit ? 'text-emerald-400' : 'text-danger';
-                const icon = isDeposit ? 'add' : 'remove';
-                const iconBg = isDeposit ? 'bg-emerald-900/20' : 'bg-rose-900/20';
-                const iconBorder = isDeposit ? 'border-emerald-500/20' : 'border-rose-500/20';
-                const sign = isDeposit ? '+' : '-';
-
-                return `
-                    <div class="flex items-start gap-3 p-4 rounded-lg bg-slate-800/30 hover:bg-slate-800/60 transition-colors border border-transparent hover:border-border-dark">
-                        <div class="flex-shrink-0">
-                            <div class="h-10 w-10 rounded-full ${iconBg} flex items-center justify-center ${colorClass} border ${iconBorder}">
-                                <span class="material-symbols-outlined text-base">${icon}</span>
-                            </div>
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-sm font-semibold text-text-main-dark truncate">${tx.description}</p>
-                            <p class="text-xs text-text-muted-dark capitalize">${tx.childId} • ${formatDate(tx.date)}</p>
-                        </div>
-                        <div class="text-sm font-bold ${colorClass}">
-                            ${sign}${formatCurrency(tx.amount)}
-                        </div>
-                    </div>
-                 `;
-            }).join("");
-        }
-
-        function setupTransactionForm() {
-            // Type Toggle
-            const typeBtns = document.querySelectorAll(".tx-type-btn");
-            const typeInput = document.getElementById("tx-type-input");
-
-            typeBtns.forEach(btn => {
-                btn.addEventListener("click", () => {
-                    const type = btn.dataset.type;
-                    typeInput.value = type;
-
-                    // Reset classes
-                    typeBtns.forEach(b => {
-                        b.classList.remove("bg-slate-800", "border-emerald-500/30", "text-emerald-400", "text-red-400");
-                        b.classList.add("text-text-muted-dark");
-                    });
-
-                    // Active styles
-                    btn.classList.remove("text-text-muted-dark");
-                    btn.classList.add("bg-slate-800", "shadow-sm");
-                    if (type === 'deposit') {
-                        btn.classList.add("text-emerald-400", "border-emerald-500/30", "border");
-                    } else {
-                        btn.classList.add("text-red-400", "border-red-500/30", "border");
-                    }
-                });
-            });
-
-            // Submit Handler
-            const form = document.getElementById("transaction-form");
-            // Remove old listeners to prevent duplicates if re-inited
-            const newForm = form.cloneNode(true);
-            form.parentNode.replaceChild(newForm, form);
-
-            newForm.addEventListener("submit", async (e) => {
-                e.preventDefault();
-                const formData = new FormData(newForm);
-                const childId = formData.get("child");
-                const amount = parseFloat(formData.get("amount"));
-                const type = formData.get("type");
-                const category = formData.get("category");
-                const reason = formData.get("reason");
-
-                if (!childId || !amount || isNaN(amount)) {
-                    alert("Please fill in all fields.");
-                    return;
-                }
-
-                try {
-                    // 1. Add Transaction
-                    await addDoc(collection(db, "transactions"), {
-                        childId,
-                        amount,
-                        type,
-                        category,
-                        description: reason,
-                        date: serverTimestamp(),
-                        createdBy: currentUser.email
-                    });
-
-                    // 2. Update User Balance (Atomic increment/decrement)
-                    const userRef = doc(db, "users", childId);
-                    const balanceChange = type === 'deposit' ? amount : -amount;
-
-                    await updateDoc(userRef, {
-                        balance: increment(balanceChange)
-                    });
-
-                    alert("Transaction Successful!");
-                    newForm.reset();
-                    // Reset type toggle visual to default if needed
-                } catch (error) {
-                    console.error("Tx Error", error);
-                    alert("Error: " + error.message);
-                }
-            });
-        }
-
-
-        // ============================================
-        // 4. KID LOGIC
-        // ============================================
-
-        function initKidView(kidInfo) {
-            switchView("kid");
-            document.getElementById("kid-name-display").innerText = kidInfo.name + "!";
-
-            // Listen to Balance
-            const userDocRef = doc(db, "users", kidInfo.id);
-            const unsub = onSnapshot(userDocRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    document.getElementById("kid-balance-display").innerText = formatCurrency(data.balance || 0);
-                }
-            });
-            unsubscribeListeners.push(unsub);
-
-            // Listen to Activity
-            const q = query(
-                collection(db, "transactions"),
-                where("childId", "==", kidInfo.id),
-                orderBy("date", "desc"),
-                limit(10)
-            );
-
-            const unsubTx = onSnapshot(q, (snapshot) => {
-                const txs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                renderKidActivityList(txs);
-            });
-            unsubscribeListeners.push(unsubTx);
-        }
-
-        function renderKidActivityList(transactions) {
-            const container = document.getElementById("kid-activity-list");
-            if (transactions.length === 0) {
-                container.innerHTML = `<div class="p-8 text-center text-secondary">No recent transactions.</div>`;
-                return;
-            }
-
-            container.innerHTML = transactions.map(tx => {
-                const isDeposit = tx.type === 'deposit' || tx.type === 'interest';
-                const colorClass = isDeposit ? 'text-success' : 'text-danger';
                 const icon = getCategoryIcon(tx.category);
                 const sign = isDeposit ? '+' : '-';
+                const user = usersData[tx.childId] || { name: 'Unknown' };
+
+                const clickAttr = isEditable ? `onclick="openEditModal('${tx.id}')" style="cursor: pointer;"` : "";
+                const hoverClass = isEditable ? "hover:bg-slate-800/60" : "hover:bg-slate-800/30";
 
                 return `
-                    <div class="px-8 py-5 flex items-center justify-between hover:bg-slate-800/30 transition-colors">
+                    <div ${clickAttr} class="px-6 py-4 flex items-center justify-between ${hoverClass} transition-colors border-b border-card-border last:border-0 group">
                         <div class="flex items-center gap-4">
-                            <div class="w-11 h-11 rounded-xl bg-slate-800/50 flex items-center justify-center text-secondary">
-                                <span class="material-symbols-outlined text-xl">${icon}</span>
+                            <div class="w-10 h-10 rounded-xl bg-slate-800/50 flex items-center justify-center text-secondary group-hover:bg-slate-700 transition-colors">
+                                <span class="material-symbols-outlined text-lg">${icon}</span>
                             </div>
                             <div>
                                 <p class="font-semibold text-white text-sm">${tx.description}</p>
-                                <p class="text-[11px] text-secondary">${formatDate(tx.date)} • ${tx.category}</p>
+                                <p class="text-[11px] text-secondary capitalize">${user.name} • ${formatDate(tx.date)}</p>
                             </div>
                         </div>
-                        <span class="${colorClass} font-bold text-sm">${sign}${formatCurrency(tx.amount)}</span>
+                        <span class="${colorClass} font-bold text-sm bg-slate-800/20 px-2 py-1 rounded">${sign}${formatCurrency(tx.amount)}</span>
                     </div>
                 `;
             }).join("");
         }
 
-        // ============================================
-        // 5. UTILS & LISTENERS
-        // ============================================
+        // Modal Logic (Global Scope attachment)
+        window.openEditModal = function (txId) {
+            const tx = txsData.find(t => t.id === txId);
+            if (!tx) return;
 
-        function formatCurrency(num) {
-            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
+            document.getElementById("edit-id").value = tx.id;
+            document.getElementById("edit-type").value = tx.type;
+            document.getElementById("edit-amount").value = tx.amount;
+            document.getElementById("edit-description").value = tx.description;
+            // Date handling for input type=datetime-local
+            const d = new Date(tx.date);
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            document.getElementById("edit-date").value = d.toISOString().slice(0, 16);
+
+            document.getElementById("edit-modal").classList.remove("hidden");
         }
 
-        function formatDate(timestamp) {
-            if (!timestamp) return "";
-            // Firestore timestamp to JS Date
-            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        window.closeEditModal = () => document.getElementById("edit-modal").classList.add("hidden");
+
+        window.deleteCurrentTx = async function () {
+            if (!confirm("Delete this transaction? Balance will be reverted.")) return;
+            const txId = document.getElementById("edit-id").value;
+            const tx = txsData.find(t => t.id === txId);
+            if (!tx) return;
+
+            try {
+                // Revert Balance + Delete Item
+                const userRef = doc(db, "users", tx.childId);
+                const txRef = doc(db, "transactions", txId);
+
+                await runTransaction(db, async (t) => {
+                    const userDoc = await t.get(userRef);
+                    if (!userDoc.exists()) throw "User not found";
+
+                    // Revert logic: If it was deposit, subtract. If withdrawal, add.
+                    let revAmount = 0;
+                    if (tx.type === 'withdrawal') revAmount = tx.amount; // Add back
+                    else revAmount = -tx.amount; // Remove
+
+                    t.update(userRef, { balance: userDoc.data().balance + revAmount });
+                    t.delete(txRef);
+                });
+                closeEditModal();
+            } catch (e) {
+                console.error(e);
+                alert("Delete failed: " + e.message);
+            }
         }
 
-        function getCategoryIcon(category) {
-            const map = {
-                'Weekly Allowance': 'savings',
-                'Chore Reward': 'cleaning_services',
-                'Birthday Gift': 'card_giftcard',
-                'Spending': 'shopping_cart',
-                'Interest': 'trending_up',
-                'Other': 'payments'
-            };
-            return map[category] || 'payments';
-        }
+        // Edit Submit
+        document.getElementById("edit-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const txId = formData.get("id");
+            const newType = formData.get("type");
+            const newAmount = parseFloat(formData.get("amount"));
+            const newDesc = formData.get("description");
+            const newDateStr = formData.get("date"); // ISO string from input
 
-        document.getElementById("google-login-btn").addEventListener("click", () => {
-            signInWithPopup(auth, provider).catch(err => {
-                document.getElementById("login-error").innerText = err.message;
-                document.getElementById("login-error").classList.remove("hidden");
-            });
+            // Complex Revert + Apply Logic
+            const oldTx = txsData.find(t => t.id === txId);
+
+            try {
+                await runTransaction(db, async (t) => {
+                    const userRef = doc(db, "users", oldTx.childId); // Assume child ID not changeable for simplicity
+                    const userDoc = await t.get(userRef);
+
+                    // 1. Revert Old
+                    let currentBal = userDoc.data().balance;
+                    if (oldTx.type === 'withdrawal') currentBal += oldTx.amount;
+                    else currentBal -= oldTx.amount;
+
+                    // 2. Apply New
+                    if (newType === 'withdrawal') currentBal -= newAmount;
+                    else currentBal += newAmount;
+
+                    t.update(userRef, { balance: currentBal });
+                    t.update(doc(db, "transactions", txId), {
+                        type: newType,
+                        amount: newAmount,
+                        description: newDesc,
+                        date: new Date(newDateStr) // Convert back to timestamp/date obj
+                    });
+                });
+                closeEditModal();
+            } catch (err) {
+                console.error(err);
+                alert("Update failed: " + err.message);
+            }
         });
-
-        document.getElementById("admin-logout-btn").addEventListener("click", () => signOut(auth));
-        document.getElementById("kid-logout-btn").addEventListener("click", () => signOut(auth));
-
 
     </script>
 </body>

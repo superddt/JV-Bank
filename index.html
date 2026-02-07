@@ -720,6 +720,10 @@
                                  <span class="text-text-muted-dark">30-Day Change</span>
                                  <span class="${changeClass} font-bold">${changeSign}${formatCurrency(monthChange)}</span>
                             </div>
+                            <div class="flex justify-between items-center text-xs">
+                                 <span class="text-text-muted-dark">Allowance</span>
+                                 <span class="text-accent font-bold">${formatCurrency(user.halfMonthAllowance || 0)} <span class="text-[9px] text-text-muted-dark font-normal">/ 15d</span></span>
+                            </div>
                             <div class="flex justify-between items-center text-xs border-t border-white/5 pt-2">
                                  <span class="text-text-muted-dark">Current APY</span>
                                  <span class="text-primary font-bold">${user.interestRate}%</span>
@@ -1131,6 +1135,22 @@
         }
 
         window.closeEditModal = () => document.getElementById("edit-modal").classList.add("hidden");
+
+        // GLOBAL SCOPE FIX for Back Button
+        window.initAdminView = function () {
+            const views = {
+                login: document.getElementById("login-view"),
+                admin: document.getElementById("admin-view"),
+                kid: document.getElementById("kid-view")
+            };
+            Object.values(views).forEach(el => el.classList.add("hidden"));
+            views.admin.classList.remove("hidden");
+
+            // Re-run setup if needed, or just let the subscription update the UI
+            // We don't need to re-subscribe if already subscribed, but calling it is safe-ish.
+            // Better to just ensure render is called.
+            // renderAdminData() is called by listener.
+        };
 
         window.deleteCurrentTx = async function () {
             if (!confirm("Delete this transaction? Balance will be reverted.")) return;

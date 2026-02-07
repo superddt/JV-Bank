@@ -104,17 +104,38 @@
                     <h1 class="text-2xl font-bold text-text-main-dark">Admin Overview</h1>
                     <p class="text-text-muted-dark mt-1">Manage savings for Chenn and Honn.</p>
                 </div>
-                <div class="flex items-center gap-4">
-                    <!-- User Profile -->
-                    <div class="flex items-center gap-2">
-                        <img id="admin-avatar" class="w-8 h-8 rounded-full border border-border-dark" src="" alt="">
-                        <span id="admin-name" class="text-sm font-medium text-text-main-dark hidden md:block"></span>
+                <div class="flex flex-col items-end gap-2">
+                    <div class="flex items-center gap-4">
+                        <!-- User Profile -->
+                        <div class="flex items-center gap-2">
+                            <img id="admin-avatar" class="w-8 h-8 rounded-full border border-border-dark" src="" alt="">
+                            <span id="admin-name"
+                                class="text-sm font-medium text-text-main-dark hidden md:block"></span>
+                        </div>
                     </div>
-                    <!-- Global APY Setting -->
+
+                    <!-- Settings Group -->
                     <div class="flex items-center gap-2 bg-surface-dark px-3 py-2 rounded-lg border border-border-dark">
-                        <span class="text-xs text-text-muted-dark font-bold uppercase">APY (%)</span>
-                        <input type="number" id="global-apy-input" step="0.1"
-                            class="w-16 bg-slate-900 border border-border-dark rounded px-2 py-1 text-sm font-bold text-primary focus:ring-primary focus:border-primary">
+                        <!-- Chenn Allowance -->
+                        <div class="flex flex-col items-center">
+                            <span class="text-[10px] text-text-muted-dark uppercase font-bold">Chenn ($)</span>
+                            <input type="number" id="chenn-allowance-input" step="1"
+                                class="w-16 bg-slate-900 border border-border-dark rounded px-2 py-1 text-xs font-bold text-accent focus:ring-accent focus:border-accent text-center">
+                        </div>
+                        <div class="w-px h-8 bg-border-dark mx-1"></div>
+                        <!-- Honn Allowance -->
+                        <div class="flex flex-col items-center">
+                            <span class="text-[10px] text-text-muted-dark uppercase font-bold">Honn ($)</span>
+                            <input type="number" id="honn-allowance-input" step="1"
+                                class="w-16 bg-slate-900 border border-border-dark rounded px-2 py-1 text-xs font-bold text-accent focus:ring-accent focus:border-accent text-center">
+                        </div>
+                        <div class="w-px h-8 bg-border-dark mx-1"></div>
+                        <!-- APY -->
+                        <div class="flex flex-col items-center">
+                            <span class="text-[10px] text-text-muted-dark uppercase font-bold">APY (%)</span>
+                            <input type="number" id="global-apy-input" step="0.1"
+                                class="w-16 bg-slate-900 border border-border-dark rounded px-2 py-1 text-xs font-bold text-primary focus:ring-primary focus:border-primary text-center">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -295,12 +316,32 @@
             <!-- Balance Card -->
             <div class="lg:col-span-4 space-y-10">
                 <div class="bg-card-bg rounded-[2rem] p-10 border border-card-border shadow-lg text-center">
-                    <div class="relative inline-block mb-6">
-                        <div
-                            class="w-24 h-24 rounded-full border-4 border-card-border overflow-hidden ring-4 ring-accent/20 flex items-center justify-center bg-slate-800">
-                            <span class="material-symbols-outlined text-4xl text-accent">face</span>
+
+                    <!-- Icon & Name Row -->
+                    <div class="flex items-center justify-center gap-5 mb-8">
+                        <div class="relative">
+                            <div
+                                class="w-20 h-20 rounded-full border-4 border-card-border overflow-hidden ring-4 ring-accent/20 flex items-center justify-center bg-slate-800 shadow-xl">
+                                <span id="kid-view-icon"
+                                    class="material-symbols-outlined text-4xl text-accent">face</span>
+                            </div>
+                            <div
+                                class="absolute -bottom-2 -right-2 bg-slate-800 rounded-full p-1.5 border-2 border-card-border flex items-center justify-center">
+                                <span id="kid-gender-icon"
+                                    class="material-symbols-outlined text-sm text-secondary">face</span>
+                            </div>
+                        </div>
+                        <div class="text-left">
+                            <h3 id="kid-card-name" class="text-3xl font-bold text-white tracking-tight">...</h3>
+                            <div
+                                class="flex items-center gap-1.5 mt-1 text-secondary/80 bg-slate-800/50 px-2 py-1 rounded-md border border-white/5">
+                                <span class="material-symbols-outlined text-xs">payments</span>
+                                <span id="kid-allowance-info" class="text-xs font-medium uppercase tracking-wider">$0 /
+                                    half-mo</span>
+                            </div>
                         </div>
                     </div>
+
                     <p class="text-[11px] font-bold uppercase tracking-[0.15em] text-secondary mb-2">Total Savings</p>
                     <h2 id="kid-balance-display" class="text-6xl font-bold text-white mb-6">...</h2>
 
@@ -568,24 +609,46 @@
             showView("admin");
             subscribeToData();
             setupTransactionForm();
-            // Sync APY input from one user (assuming sync) or global?
-            // Firestore data might not be ready instantly. Logic in renderAdminData handles input updates.
+            setupAdminSettings();
         }
 
-        // APY Helper
-        window.updateGlobalAPY = async function (val) {
-            const numVal = parseFloat(val);
-            // Update ALL users
-            const batch = writeBatch(db);
-            Object.keys(usersData).forEach(uid => {
+        function setupAdminSettings() {
+            // Inputs
+            const chennInput = document.getElementById("chenn-allowance-input");
+            const honnInput = document.getElementById("honn-allowance-input");
+            const apyInput = document.getElementById("global-apy-input");
+
+            // Load from LocalStorage (fast load)
+            const savedChenn = localStorage.getItem("admin_setting_chenn_allowance");
+            const savedHonn = localStorage.getItem("admin_setting_honn_allowance");
+            if (savedChenn) chennInput.value = savedChenn;
+            if (savedHonn) honnInput.value = savedHonn;
+
+            // Listeners for Allowance
+            // changing these updates the USER doc so kid view can see it
+            async function updateAllowanceSetting(uid, val) {
+                localStorage.setItem("admin_setting_" + uid + "_allowance", val);
+                // Also update firestore user doc "halfMonthAllowance"
                 const ref = doc(db, "users", uid);
-                batch.update(ref, { interestRate: numVal });
+                await updateDoc(ref, { halfMonthAllowance: parseFloat(val) });
+            }
+
+            chennInput.addEventListener("change", (e) => updateAllowanceSetting("chenn", e.target.value));
+            honnInput.addEventListener("change", (e) => updateAllowanceSetting("honn", e.target.value));
+
+            // APY Listener
+            apyInput.addEventListener("change", async (e) => {
+                const val = parseFloat(e.target.value);
+                // Update ALL users
+                const batch = writeBatch(db);
+                Object.keys(usersData).forEach(uid => {
+                    const ref = doc(db, "users", uid);
+                    batch.update(ref, { interestRate: val });
+                });
+                await batch.commit();
             });
-            await batch.commit();
         }
 
-        // Expose initAdminView for the "Back to Admin" button in Kid View
-        window.initAdminView = initAdminView;
 
         function renderAdminData() {
             const balanceContainer = document.getElementById("admin-balances");
@@ -610,10 +673,24 @@
                 return;
             }
 
+            // Sync Inputs from Real Data if available (truth from Firestore overrides LS eventually)
             if (usersList.length > 0) {
-                const input = document.getElementById("global-apy-input");
-                if (document.activeElement !== input) {
-                    input.value = usersList[0].interestRate || 18.0;
+                const apyInput = document.getElementById("global-apy-input");
+                if (document.activeElement !== apyInput) {
+                    apyInput.value = usersList[0].interestRate || 18.0;
+                }
+
+                // Sync Allowance Inputs
+                const chenn = usersData["chenn"];
+                const honn = usersData["honn"];
+                const cInput = document.getElementById("chenn-allowance-input");
+                const hInput = document.getElementById("honn-allowance-input");
+
+                if (chenn && chenn.halfMonthAllowance && document.activeElement !== cInput) {
+                    cInput.value = chenn.halfMonthAllowance;
+                }
+                if (honn && honn.halfMonthAllowance && document.activeElement !== hInput) {
+                    hInput.value = honn.halfMonthAllowance;
                 }
             }
 
@@ -647,7 +724,7 @@
                                  <span class="text-text-muted-dark">Current APY</span>
                                  <span class="text-primary font-bold">${user.interestRate}%</span>
                             </div>
-                        </div>
+                         </div>
                         
                         <button onclick="initKidView('${user.id}')" class="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/5 text-xs font-bold text-text-muted-dark hover:text-white transition-all">
                             <span class="material-symbols-outlined text-sm">visibility</span>
@@ -659,6 +736,97 @@
             });
 
             renderActivityList("admin-activity-list", txsData.slice(0, 50), true);
+        }
+
+        // ===================================
+        // AUTOMATIC ALLOWANCE LOGIC
+        // ===================================
+        async function checkAutoAllowance() {
+            // Need users to be loaded
+            if (Object.keys(usersData).length === 0) return;
+
+            const today = new Date();
+            const day = today.getDate();
+            const month = today.getMonth(); // 0-11
+            const year = today.getFullYear();
+
+            // Logic: 15th OR End of Month
+            // End of month check:
+            const isFeb = month === 1; // Feb
+            // Feb fixed 28 check or simply last day? User said "2月底就固定28日方便計算" (Feb fixed 28)
+            // But strict "End of Month" for others could be 30/31.
+            // Let's deduce "Target Date".
+
+            let isTargetDate = false;
+            let periodId = ""; // unique ID for this allowance period e.g. "2024-02-15" or "2024-02-END"
+
+            if (day === 15) {
+                isTargetDate = true;
+                periodId = `${year}-${month + 1}-15`;
+            } else {
+                // Check End of Month
+                // If Feb, 28th is the trigger (ignoring 29 for leap year simplicity per user request "固定28日")
+                if (isFeb && day === 28) {
+                    isTargetDate = true;
+                    periodId = `${year}-${month + 1}-END`;
+                }
+                // Other months: check if tomorrow is 1st of next month? Or just strict 30/31?
+                // User said "月底" (End of Month).
+                // Let's simplisticly check if today is the last day of month
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                if (!isFeb && tomorrow.getDate() === 1) {
+                    isTargetDate = true;
+                    periodId = `${year}-${month + 1}-END`;
+                }
+            }
+
+            if (!isTargetDate) return;
+
+            // Run for each user
+            for (const uid of Object.keys(usersData)) {
+                const user = usersData[uid];
+                if (!user.halfMonthAllowance || user.halfMonthAllowance <= 0) continue;
+
+                // Check if already given for this period
+                // We'll store `lastAllowancePeriod` string in user doc
+                if (user.lastAllowancePeriod === periodId) continue;
+
+                console.log(`Triggering Auto-Allowance for ${user.name}: ${periodId}`);
+
+                // Execute Transaction
+                try {
+                    await runTransaction(db, async (t) => {
+                        const userRef = doc(db, "users", uid);
+                        const userSnapshot = await t.get(userRef);
+                        const currentData = userSnapshot.data();
+
+                        if (currentData.lastAllowancePeriod === periodId) return; // Double check inside tx
+
+                        const amount = currentData.halfMonthAllowance;
+                        const newBalance = currentData.balance + amount;
+
+                        t.update(userRef, {
+                            balance: newBalance,
+                            lastAllowancePeriod: periodId
+                        });
+
+                        const txRef = doc(collection(db, "transactions"));
+                        t.set(txRef, {
+                            childId: uid,
+                            amount: amount,
+                            type: 'deposit',
+                            category: 'Allowance',
+                            description: `Auto Allowance (${periodId})`,
+                            date: serverTimestamp(),
+                            createdBy: 'system'
+                        });
+                    });
+                    console.log(`Auto-Allowance success for ${user.name}`);
+                } catch (e) {
+                    console.error("Auto-allowance failed", e);
+                }
+            }
         }
 
         function setupTransactionForm() {

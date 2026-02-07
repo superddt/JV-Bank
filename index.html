@@ -361,7 +361,7 @@
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-text-muted-dark mb-1">Amount</label>
-                            <input type="number" name="amount" id="edit-amount" step="0.01"
+                            <input type="number" name="amount" id="edit-amount" step="1"
                                 class="w-full bg-slate-900 border border-border-dark rounded-lg p-2.5 text-white">
                         </div>
                     </div>
@@ -584,6 +584,9 @@
             await batch.commit();
         }
 
+        // Expose initAdminView for the "Back to Admin" button in Kid View
+        window.initAdminView = initAdminView;
+
         function renderAdminData() {
             const balanceContainer = document.getElementById("admin-balances");
             balanceContainer.innerHTML = "";
@@ -610,7 +613,7 @@
             if (usersList.length > 0) {
                 const input = document.getElementById("global-apy-input");
                 if (document.activeElement !== input) {
-                    input.value = usersList[0].interestRate || 3.5;
+                    input.value = usersList[0].interestRate || 18.0;
                 }
             }
 
@@ -786,7 +789,7 @@
                 name: "Chenn",
                 balance: 124.50,
                 email: "chennlee2012@gmail.com",
-                interestRate: 3.5,
+                interestRate: 18.0,
                 lastInterestDate: null
             });
 
@@ -795,7 +798,7 @@
                 name: "Honn",
                 balance: 985.25,
                 email: "honnchilee@gmail.com",
-                interestRate: 3.5,
+                interestRate: 18.0,
                 lastInterestDate: null
             });
 

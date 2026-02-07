@@ -935,14 +935,12 @@
             const iconEl = document.getElementById("kid-view-icon");
             const kidNameEl = document.getElementById("kid-card-name");
 
-            // HIDE ICON, SHOW TEXT NAME as requested
-            iconEl.classList.remove("material-symbols-outlined");
-            iconEl.classList.add("font-bold", "text-3xl", "tracking-wider");
-            iconEl.style.fontFamily = "'Inter', sans-serif";
-            iconEl.innerText = user.name; // "Chenn" or "Honn"
+            // Restore Face Icon and apply colors
+            iconEl.classList.add("material-symbols-outlined");
+            iconEl.classList.remove("font-bold", "text-3xl", "tracking-wider");
+            iconEl.innerText = "face";
 
             // Color Logic
-            // Default reset
             iconEl.classList.remove("text-accent", "text-pink-400", "text-blue-400");
 
             if (kidId === "chenn") {
@@ -953,10 +951,8 @@
                 iconEl.classList.add("text-accent");
             }
 
-            // Name
+            // Name & Allowance
             kidNameEl.innerText = user.name;
-
-            // Allowance Info
             const allowInfo = document.getElementById("kid-allowance-info");
             const allowVal = user.halfMonthAllowance || 0;
             allowInfo.innerText = `${formatCurrency(allowVal)} / 15d`;

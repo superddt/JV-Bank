@@ -741,89 +741,78 @@
         // AUTOMATIC ALLOWANCE LOGIC
         // ===================================
         async function checkAutoAllowance() {
-            // Need users to be loaded
             if (Object.keys(usersData).length === 0) return;
 
-            const today = new Date();
-            const day = today.getDate();
-            const month = today.getMonth(); // 0-11
-            const year = today.getFullYear();
+            const now = new Date();
 
-            // Logic: 15th OR End of Month
-            // End of month check:
-            const isFeb = month === 1; // Feb
-            // Feb fixed 28 check or simply last day? User said "2月底就固定28日方便計算" (Feb fixed 28)
-            // But strict "End of Month" for others could be 30/31.
-            // Let's deduce "Target Date".
-
-            let isTargetDate = false;
-            let periodId = ""; // unique ID for this allowance period e.g. "2024-02-15" or "2024-02-END"
-
-            if (day === 15) {
-                isTargetDate = true;
-                periodId = `${year}-${month + 1}-15`;
-            } else {
-                // Check End of Month
-                // If Feb, 28th is the trigger (ignoring 29 for leap year simplicity per user request "固定28日")
-                if (isFeb && day === 28) {
-                    isTargetDate = true;
-                    periodId = `${year}-${month + 1}-END`;
-                }
-                // Other months: check if tomorrow is 1st of next month? Or just strict 30/31?
-                // User said "月底" (End of Month).
-                // Let's simplisticly check if today is the last day of month
-                const tomorrow = new Date(today);
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                if (!isFeb && tomorrow.getDate() === 1) {
-                    isTargetDate = true;
-                    periodId = `${year}-${month + 1}-END`;
-                }
-            }
-
-            if (!isTargetDate) return;
-
-            // Run for each user
             for (const uid of Object.keys(usersData)) {
                 const user = usersData[uid];
                 if (!user.halfMonthAllowance || user.halfMonthAllowance <= 0) continue;
 
-                // Check if already given for this period
-                // We'll store `lastAllowancePeriod` string in user doc
-                if (user.lastAllowancePeriod === periodId) continue;
+                // Determine start date for catch-up
+                let lastDate;
+                if (user.lastAllowancePeriod) {
+                    lastDate = new Date(user.lastAllowancePeriod);
+                } else {
+                    // If no record, start from yesterday to avoid massive retrospective payments
+                    lastDate = new Date(now);
+                    lastDate.setDate(lastDate.getDate() - 1);
+                }
+                lastDate.setHours(0, 0, 0, 0);
 
-                console.log(`Triggering Auto-Allowance for ${user.name}: ${periodId}`);
+                // Find missing 15th and 28th markers
+                const markers = [];
+                let loopDate = new Date(lastDate);
+                loopDate.setDate(loopDate.getDate() + 1);
 
-                // Execute Transaction
-                try {
-                    await runTransaction(db, async (t) => {
-                        const userRef = doc(db, "users", uid);
-                        const userSnapshot = await t.get(userRef);
-                        const currentData = userSnapshot.data();
+                while (loopDate <= now) {
+                    const day = loopDate.getDate();
+                    if (day === 15 || day === 28) {
+                        markers.push(new Date(loopDate));
+                    }
+                    loopDate.setDate(loopDate.getDate() + 1);
+                }
 
-                        if (currentData.lastAllowancePeriod === periodId) return; // Double check inside tx
+                if (markers.length === 0) continue;
 
-                        const amount = currentData.halfMonthAllowance;
-                        const newBalance = currentData.balance + amount;
+                console.log(`Catching up ${markers.length} Allowance(s) for ${user.name}`);
 
-                        t.update(userRef, {
-                            balance: newBalance,
-                            lastAllowancePeriod: periodId
+                for (const marker of markers) {
+                    const periodId = marker.toISOString().split('T')[0];
+                    try {
+                        await runTransaction(db, async (t) => {
+                            const userRef = doc(db, "users", uid);
+                            const userSnapshot = await t.get(userRef);
+                            const currentData = userSnapshot.data();
+
+                            // Double check inside transaction to avoid race conditions
+                            // (though markers are processed sequentially here)
+                            if (currentData.lastAllowancePeriod >= periodId) return;
+
+                            const amount = currentData.halfMonthAllowance;
+                            const newBalance = (currentData.balance || 0) + amount;
+
+                            t.update(userRef, {
+                                balance: newBalance,
+                                lastAllowancePeriod: periodId
+                            });
+
+                            const txRef = doc(collection(db, "transactions"));
+                            t.set(txRef, {
+                                childId: uid,
+                                amount: amount,
+                                type: 'deposit',
+                                category: 'Allowance',
+                                description: `Auto Allowance (${periodId})`,
+                                date: marker.toISOString(), // Use the fixed cycle date
+                                createdBy: 'system'
+                            });
                         });
-
-                        const txRef = doc(collection(db, "transactions"));
-                        t.set(txRef, {
-                            childId: uid,
-                            amount: amount,
-                            type: 'deposit',
-                            category: 'Allowance',
-                            description: `Auto Allowance (${periodId})`,
-                            date: serverTimestamp(),
-                            createdBy: 'system'
-                        });
-                    });
-                    console.log(`Auto-Allowance success for ${user.name}`);
-                } catch (e) {
-                    console.error("Auto-allowance failed", e);
+                        console.log(`Auto-Allowance success for ${user.name}: ${periodId}`);
+                    } catch (e) {
+                        console.error(`Auto-allowance failed for ${user.name} at ${periodId}`, e);
+                        break; // Stop if one fails to keep order
+                    }
                 }
             }
         }
@@ -1027,60 +1016,81 @@
         let interestCheckedThisSession = false;
 
         async function checkAutoInterest() {
-            if (interestCheckedThisSession) return; // Prevent loop in single session
-
-            const today = new Date();
-            if (today.getDate() < 2) return; // Only 2nd onwards
-
-            // Mark checked immediately to prevent races
+            if (interestCheckedThisSession) return;
             interestCheckedThisSession = true;
 
-            // Loop users
+            const now = new Date();
+
             for (const uid of Object.keys(usersData)) {
                 const user = usersData[uid];
-                const lastToken = user.lastInterestDate; // String or timestamp
-                // Parse last date
-                let lastDate = null;
-                if (lastToken) {
-                    // Could be Firestore Timestamp or string
-                    if (lastToken.toDate) lastDate = lastToken.toDate();
-                    else lastDate = new Date(lastToken);
+                if (!user.interestRate || user.interestRate <= 0) continue;
+
+                let lastPaidDate;
+                if (user.lastInterestDate) {
+                    const d = (user.lastInterestDate.toDate) ? user.lastInterestDate.toDate() : new Date(user.lastInterestDate);
+                    lastPaidDate = new Date(d.getFullYear(), d.getMonth(), 1);
+                } else {
+                    // Baseline: 1st of current month (meaning we'll check if previous month needs paying)
+                    lastPaidDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                    lastPaidDate.setMonth(lastPaidDate.getMonth() - 1);
                 }
+                lastPaidDate.setHours(0, 0, 0, 0);
 
-                const alreadyPaid = lastDate &&
-                    lastDate.getMonth() === today.getMonth() &&
-                    lastDate.getFullYear() === today.getFullYear();
+                let nextPaymentDate = new Date(lastPaidDate);
+                nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
+                nextPaymentDate.setDate(1);
+                nextPaymentDate.setHours(0, 0, 0, 0);
 
-                if (!alreadyPaid && user.interestRate > 0) {
-                    const rawInterest = user.balance * (user.interestRate / 100 / 12);
-                    const interest = parseFloat(rawInterest.toFixed(2));
-                    if (interest > 0) {
-                        console.log("Paying Interest for " + user.name);
-                        // Perform Write
-                        try {
-                            const batch = writeBatch(db);
-                            // 1. Transaction
-                            const txRef = doc(collection(db, "transactions"));
-                            batch.set(txRef, {
-                                childId: uid,
-                                amount: interest,
-                                type: 'interest',
-                                category: 'Interest',
-                                description: 'Monthly Interest',
-                                date: serverTimestamp(),
-                                createdBy: 'system'
-                            });
-                            // 2. User Update
+                while (true) {
+                    // Only pay if today is at least the 2nd of the payment month
+                    const threshold = new Date(nextPaymentDate);
+                    threshold.setDate(2);
+
+                    if (now < threshold) break;
+
+                    const interestMonth = new Date(nextPaymentDate);
+                    interestMonth.setMonth(interestMonth.getMonth() - 1);
+                    const monthLabel = interestMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+                    try {
+                        await runTransaction(db, async (t) => {
                             const userRef = doc(db, "users", uid);
-                            batch.update(userRef, {
-                                balance: user.balance + interest,
-                                lastInterestDate: serverTimestamp() // Use server time
-                            });
-                            await batch.commit();
-                        } catch (e) {
-                            console.error("Auto-pay error", e);
-                        }
+                            const userSnapshot = await t.get(userRef);
+                            const currentData = userSnapshot.data();
+
+                            // Use latest balance from transaction
+                            const balance = currentData.balance || 0;
+                            const interestRate = (currentData.interestRate || 0) / 100 / 12;
+                            const interest = parseFloat((balance * interestRate).toFixed(2));
+
+                            if (interest > 0) {
+                                const txRef = doc(collection(db, "transactions"));
+                                t.set(txRef, {
+                                    childId: uid,
+                                    amount: interest,
+                                    type: 'interest',
+                                    category: 'Interest',
+                                    description: `Monthly Interest (${monthLabel})`,
+                                    date: nextPaymentDate.toISOString(), // Fixed date (1st of month)
+                                    createdBy: 'system'
+                                });
+
+                                t.update(userRef, {
+                                    balance: balance + interest,
+                                    lastInterestDate: nextPaymentDate.toISOString()
+                                });
+                            } else {
+                                // Just update date if interest is 0
+                                t.update(userRef, { lastInterestDate: nextPaymentDate.toISOString() });
+                            }
+                        });
+                        console.log(`Interest success for ${user.name}: ${monthLabel}`);
+                    } catch (e) {
+                        console.error(`Interest failed for ${user.name} at ${monthLabel}`, e);
+                        break;
                     }
+
+                    nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
                 }
             }
         }

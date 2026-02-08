@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MARKET VALUATION HUB - 整合監控站</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        .nav-btn {
+            color: #64748b;
+            transition: all 0.3s;
+        }
+
+        .nav-btn:hover {
+            color: #cbd5e1;
+            background: #1e293b;
+        }
+
+        .nav-btn.active {
+            color: #fff;
+            background: #4f46e5;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);
+        }
+
+        .range-btn,
+        .mode-btn,
+        .tab-btn {
+            color: #64748b;
+        }
+
+        .range-btn:hover,
+        .mode-btn:hover,
+        .tab-btn:hover {
+            color: #cbd5e1;
+            background: #1e293b;
+        }
+
+        .range-btn.active,
+        .mode-btn.active,
+        .tab-btn.active {
+            color: #fff;
+            background: #4f46e5;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);
+        }
+
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .status-dot {
+            height: 8px;
+            width: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .status-ready {
+            background-color: #10b981;
+            box-shadow: 0 0 8px #10b981;
+        }
+
+        .status-wait {
+            background-color: #f59e0b;
+        }
+
+        .status-err {
+            background-color: #ef4444;
+        }
+
+        .data-table th {
+            text-align: left;
+            padding: 0.75rem;
+            color: #94a3b8;
+            border-bottom: 1px solid #334155;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .data-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #1e293b;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        .data-table tr:hover {
+            background-color: #334155;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-900 text-slate-100 p-4 md:p-8 font-sans min-h-screen">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- 頂部導航 -->
+        <header
+            class="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-slate-700 pb-6 gap-6">
+            <div class="w-full md:w-auto text-center md:text-left">
+                <h1
+                    class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">
+                    MARKET VALUATION HUB
+                </h1>
+                <p class="text-[10px] text-slate-500 mt-1 uppercase tracking-widest italic">Precision Analytics |
+                    Integrated Suite</p>
+            </div>
+
+            <nav class="flex bg-slate-800 p-1.5 rounded-2xl border border-slate-700 shadow-xl overflow-x-auto">
+                <button onclick="switchView('market-pulse')" id="nav-mp"
+                    class="nav-btn px-6 py-2 rounded-xl text-sm font-bold active whitespace-nowrap">市場趨勢
+                    (Pulse)</button>
+                <button onclick="switchView('bi-dashboard')" id="nav-bi"
+                    class="nav-btn px-6 py-2 rounded-xl text-sm font-bold whitespace-nowrap">BI 指數 (Dashboard)</button>
+                <button onclick="switchView('backtest-pro')" id="nav-bt"
+                    class="nav-btn px-6 py-2 rounded-xl text-sm font-bold whitespace-nowrap">策略回測 (Backtest)</button>
+            </nav>
+
+            <div class="flex gap-4 items-center whitespace-nowrap">
+                <div id="globalStatus" class="text-[10px] font-mono italic text-right leading-tight text-slate-500">
+                    <span class="status-dot status-wait" id="mainStatusDot"></span>
+                    <span id="mainStatusText">初始化並加載快取...</span>
+                </div>
+                <button onclick="forceSyncAll()"
+                    class="bg-slate-800 hover:bg-slate-700 border border-slate-600 px-4 py-2 rounded-lg text-xs font-bold transition">
+                    🔄 強制同步
+                </button>
+            </div>
+        </header>
+
+        <!-- 視圖區域 -->
+        <main>
+            <!-- 1. Market Pulse View (index.html) -->
+            <section id="view-market-pulse" class="view-content animate-in fade-in duration-500">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-xl">
+                        <div class="text-slate-500 text-[10px] font-bold uppercase tracking-widest">席勒市盈率 (CAPE)</div>
+                        <div id="mp-capeVal" class="text-5xl font-mono font-bold mt-2 text-rose-500">--.-</div>
+                        <div id="mp-capeStatus"
+                            class="mt-4 text-[10px] py-1 px-3 bg-slate-900 rounded-full inline-block font-bold">--</div>
+                    </div>
+                    <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-xl">
+                        <div class="text-slate-500 text-[10px] font-bold uppercase tracking-widest">巴菲特指標 (代理)</div>
+                        <div id="mp-buffettVal" class="text-5xl font-mono font-bold mt-2 text-emerald-500">--%</div>
+                        <p id="mp-gdpVal" class="text-[10px] text-slate-500 mt-4 uppercase italic">GDP: $-- T</p>
+                    </div>
+                    <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-xl">
+                        <div class="text-slate-500 text-[10px] font-bold uppercase tracking-widest">S&P 500 現價</div>
+                        <div id="mp-priceVal" class="text-4xl font-mono font-bold mt-2 text-blue-400">----</div>
+                        <div class="text-[10px] text-slate-500 mt-4 uppercase italic">Real-time Multpl Quote</div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-2xl">
+                    <div
+                        class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border-b border-slate-700 pb-4">
+                        <h3 class="text-sm font-bold text-slate-300 uppercase flex items-center gap-2">
+                            <span class="w-2 h-6 bg-indigo-500 rounded-full"></span> 分析與計算
+                        </h3>
+                        <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-700" id="mp-modeControls">
+                            <button onclick="changeMPMode('market')" id="mp-btnMarket"
+                                class="mode-btn px-4 py-1.5 rounded-lg text-xs font-bold transition active">市場趨勢</button>
+                            <button onclick="changeMPMode('buffett')" id="mp-btnBuffett"
+                                class="mode-btn px-4 py-1.5 rounded-lg text-xs font-bold transition">巴菲特指標</button>
+                            <button onclick="changeMPMode('calc')" id="mp-btnCalc"
+                                class="mode-btn px-4 py-1.5 rounded-lg text-xs font-bold transition text-amber-500">💰
+                                資金分配</button>
+                        </div>
+                        <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-700" id="mp-timeRangeControls">
+                            <button onclick="changeMPRange(36)"
+                                class="range-btn px-4 py-1.5 rounded-lg text-xs font-bold transition">3Y</button>
+                            <button onclick="changeMPRange(60)"
+                                class="range-btn px-4 py-1.5 rounded-lg text-xs font-bold transition">5Y</button>
+                            <button onclick="changeMPRange(120)"
+                                class="range-btn px-4 py-1.5 rounded-lg text-xs font-bold transition active">10Y</button>
+                            <button onclick="changeMPRange(360)"
+                                class="range-btn px-4 py-1.5 rounded-lg text-xs font-bold transition">30Y</button>
+                            <button onclick="changeMPRange(0)"
+                                class="range-btn px-4 py-1.5 rounded-lg text-xs font-bold transition">ALL</button>
+                        </div>
+                    </div>
+                    <div id="mp-chartContainer" class="h-[450px]">
+                        <canvas id="mp-dualChart"></canvas>
+                    </div>
+                    <div id="mp-calculatorContainer" class="hidden min-h-[450px] animate-in fade-in duration-500">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div class="space-y-6 bg-slate-900/50 p-6 rounded-2xl border border-slate-700">
+                                <h4 class="text-emerald-400 font-bold text-xs uppercase tracking-widest mb-4">策略參數設定
+                                </h4>
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 mb-2 uppercase">最高投資金額 (USD)</label>
+                                    <input type="number" id="mp-calcAmount" oninput="calculateMPInvestment()"
+                                        class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-xl font-mono focus:border-indigo-500 outline-none"
+                                        value="10000">
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-[10px] text-slate-500 mb-2 uppercase">CAPE 統計區間
+                                            (年)</label>
+                                        <input type="number" id="mp-calcPeriod" oninput="calculateMPInvestment()"
+                                            class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 font-mono outline-none focus:border-indigo-500"
+                                            value="10">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-slate-500 mb-2 uppercase">槓桿倍數 (次方)</label>
+                                        <input type="number" id="mp-calcLeverage" oninput="calculateMPInvestment()"
+                                            step="0.1"
+                                            class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 font-mono outline-none focus:border-indigo-500"
+                                            value="1.0">
+                                    </div>
+                                </div>
+                            </div>
+                            <div
+                                class="bg-indigo-900/20 p-6 rounded-2xl border border-indigo-500/30 flex flex-col justify-between">
+                                <div>
+                                    <h4 class="text-indigo-400 font-bold text-xs uppercase tracking-widest mb-4">建議投資額
+                                    </h4>
+                                    <div id="mp-resAmount" class="text-6xl font-black text-white font-mono mb-2">$0
+                                    </div>
+                                    <div id="mp-resFormula"
+                                        class="text-[11px] text-slate-400 leading-relaxed font-mono mt-4 p-3 bg-black/30 rounded-lg border border-slate-700/50">
+                                    </div>
+                                </div>
+                                <div id="mp-resDetails" class="mt-4"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. BI Dashboard View (BI_index.html) -->
+            <section id="view-bi-dashboard" class="view-content hidden animate-in fade-in duration-500">
+                <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-2xl">
+                    <div class="header text-center mb-8">
+                        <h2 class="text-xl font-bold text-slate-300 uppercase">BI 指數監測儀表板</h2>
+                        <div id="bi-dateStatus" class="text-[10px] font-mono italic mt-2 text-emerald-500">正在檢查最新數據...
+                        </div>
+                    </div>
+
+                    <div
+                        class="tabs flex flex-wrap gap-2 justify-center mb-8 bg-slate-900 p-1.5 rounded-2xl border border-slate-700">
+                        <button class="tab-btn active px-4 py-2 rounded-xl text-xs font-bold transition"
+                            onclick="changeBISuffix(this, 'BI-Chart5', 'Buffett Indicator')">巴菲特指數</button>
+                        <button class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition"
+                            onclick="changeBISuffix(this, 'PE-Chart4', 'Price/Earnings')">本益比</button>
+                        <button class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition"
+                            onclick="changeBISuffix(this, 'PS-Chart3', 'Price/Sales')">股價營收比</button>
+                        <button class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition"
+                            onclick="changeBISuffix(this, 'IN-Chart4', 'Interest Rates')">利率</button>
+                        <button class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition"
+                            onclick="changeBISuffix(this, 'SP-Chart3', 'Mean Reversion')">均值回歸</button>
+                        <button class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition"
+                            onclick="changeBISuffix(this, 'YG-Chart4', 'Yield Gap')">殖利率差</button>
+                    </div>
+
+                    <div class="chart-box text-center">
+                        <h3 id="bi-chartTitle"
+                            class="text-sm font-bold text-slate-300 uppercase flex items-center justify-center gap-2 mb-6">
+                            <span class="w-2 h-6 bg-indigo-500 rounded-full"></span> Buffett Indicator
+                        </h3>
+                        <div
+                            class="image-wrapper bg-slate-900 rounded-2xl border border-slate-700 p-4 mb-6 flex items-center justify-center min-h-[450px]">
+                            <img id="bi-displayImg" src="" alt="圖片載入中..."
+                                class="max-w-full h-auto rounded-lg shadow-lg">
+                        </div>
+                        <div class="footer-tools flex flex-col items-center gap-4">
+                            <a id="bi-linkNewTab"
+                                class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition shadow-lg inline-block"
+                                target="_blank">
+                                打開原始大圖 (可存檔)
+                            </a>
+                            <div class="text-[10px] text-slate-500 font-mono italic" id="bi-urlDebug"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. Backtest Pro View (backtest_valuation.html) -->
+            <section id="view-backtest-pro" class="view-content hidden animate-in fade-in duration-500">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
+                        <label class="block text-[10px] text-slate-500 mb-2 uppercase font-bold">基準每週預算 (Max
+                            Budget)</label>
+                        <input type="number" id="bt-baseBudget" value="1000"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-xl font-mono text-emerald-400 outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
+                        <label class="block text-[10px] text-slate-500 mb-2 uppercase font-bold">投資年數 (Years)</label>
+                        <input type="number" id="bt-investmentYears" value="10" min="1"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-xl font-mono text-cyan-400 outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
+                        <label class="block text-[10px] text-slate-500 mb-2 uppercase font-bold">統計回溯區間 (年)</label>
+                        <input type="number" id="bt-lookbackYears" value="10"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-xl font-mono text-slate-200 outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
+                        <label class="block text-[10px] text-slate-500 mb-2 uppercase font-bold">槓桿強度 (Leverage)</label>
+                        <input type="number" id="bt-leverage" value="2.0" step="0.1"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-xl font-mono text-indigo-400 outline-none focus:border-indigo-500">
+                    </div>
+                    <div
+                        class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg flex flex-col justify-end gap-2 text-center">
+                        <div class="flex gap-2">
+                            <select id="bt-tickerSelect"
+                                class="w-1/2 bg-slate-900 text-white border border-slate-700 rounded-lg px-2 py-2 text-xs outline-none"
+                                onchange="handleBTTickerChange()">
+                                <option value="SPY">SPY</option>
+                                <option value="QQQ">QQQ</option>
+                                <option value="VOO">VOO</option>
+                                <option value="VT">VT</option>
+                            </select>
+                            <input type="password" id="bt-apiKeyInput" placeholder="API KEY"
+                                class="w-1/2 bg-slate-900 text-white border border-slate-700 rounded-lg px-2 py-2 text-xs outline-none"
+                                onchange="saveBTApiKey()">
+                        </div>
+                        <button onclick="runBacktest()" id="bt-runBtn"
+                            class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white w-full py-3 rounded-xl text-lg font-bold shadow-lg transition opacity-50 cursor-not-allowed"
+                            disabled>
+                            🚀 開始回測
+                        </button>
+                    </div>
+                </div>
+
+                <div id="bt-resultsArea" class="hidden space-y-8 animate-in fade-in duration-700">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div
+                            class="bg-slate-800 p-6 rounded-3xl border border-slate-700 border-t-4 border-t-indigo-500 shadow-xl">
+                            <div class="flex justify-between items-start mb-6">
+                                <div>
+                                    <h4 class="text-lg font-bold text-indigo-400 uppercase tracking-wider">策略 A: 估值模型
+                                    </h4>
+                                    <p class="text-[10px] text-slate-500 mt-1">動態調整每週投入金額</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-3xl font-black text-white" id="bt-resA_return">--%</div>
+                                    <div class="text-[10px] text-slate-400 uppercase">總報酬率</div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 text-sm font-mono">
+                                <div class="bg-slate-900/50 p-3 rounded-xl">
+                                    <div class="text-slate-500 text-[10px] uppercase">總投入本金</div>
+                                    <div class="font-bold text-slate-200" id="bt-resA_cost">$0</div>
+                                </div>
+                                <div class="bg-slate-900/50 p-3 rounded-xl">
+                                    <div class="text-slate-500 text-[10px] uppercase">最終資產價值</div>
+                                    <div class="font-bold text-emerald-400" id="bt-resA_value">$0</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            class="bg-slate-800 p-6 rounded-3xl border border-slate-700 border-t-4 border-t-emerald-500 shadow-xl">
+                            <div class="flex justify-between items-start mb-6">
+                                <div>
+                                    <h4 class="text-lg font-bold text-emerald-400 uppercase tracking-wider">策略 B: 定期定額
+                                    </h4>
+                                    <p class="text-[10px] text-slate-500 mt-1">平均本金 (DCA)</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-3xl font-black text-white" id="bt-resB_return">--%</div>
+                                    <div class="text-[10px] text-slate-400 uppercase">總報酬率</div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 text-sm font-mono">
+                                <div class="bg-slate-900/50 p-3 rounded-xl">
+                                    <div class="text-slate-500 text-[10px] uppercase">總投入本金</div>
+                                    <div class="font-bold text-slate-200" id="bt-resB_cost">$0</div>
+                                </div>
+                                <div class="bg-slate-900/50 p-3 rounded-xl">
+                                    <div class="text-slate-500 text-[10px] uppercase">最終資產價值</div>
+                                    <div class="font-bold text-emerald-400" id="bt-resB_value">$0</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-2xl h-[450px]">
+                        <canvas id="bt-mainChart"></canvas>
+                    </div>
+
+                    <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-xl">
+                        <h4 class="text-sm font-bold text-slate-300 uppercase mb-4">估值熱度示意 (回測路徑)</h4>
+                        <div class="flex h-8 w-full rounded-full overflow-hidden mb-2" id="bt-heatBar"></div>
+                        <div class="flex justify-between text-[10px] text-slate-500 uppercase">
+                            <span>投資起點</span>
+                            <span>Time &rarr;</span>
+                            <span>最近數據</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-800 rounded-3xl border border-slate-700 shadow-xl overflow-hidden">
+                        <div class="p-4 border-b border-slate-700">
+                            <h4 class="text-sm font-bold text-slate-300 uppercase">交易明細 (最近 100 筆)</h4>
+                        </div>
+                        <div class="overflow-x-auto max-h-[500px]">
+                            <table class="w-full data-table">
+                                <thead class="sticky top-0 bg-slate-800">
+                                    <tr>
+                                        <th>日期</th>
+                                        <th>股價</th>
+                                        <th>CAPE (Rank)</th>
+                                        <th>Buffett (Z)</th>
+                                        <th>Heat %</th>
+                                        <th>回測預算</th>
+                                        <th>買入股數</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bt-tableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 前端腳本 -->
+    <script>
+        // --- 1. 全域變數與切換邏輯 ---
+        let currentView = 'market-pulse';
+        let globalData = null; // multpl.com 數據
+        let btStockData = [];  // Ticker 數據
+
+        function switchView(viewId) {
+            currentView = viewId;
+            document.querySelectorAll('.view-content').forEach(v => v.classList.add('hidden'));
+            document.getElementById('view-' + viewId).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('nav-' + (viewId === 'market-pulse' ? 'mp' : (viewId === 'bi-dashboard' ? 'bi' : 'bt'))).classList.add('active');
+
+            if (viewId === 'market-pulse' && mpMode === 'calc') {
+                calculateMPInvestment();
+            }
+        }
+
+        // --- 2. 數據同步模組 (優化自 index.html / backtest) ---
+        const CACHE_KEY = 'global_market_v5';
+        const EXPIRE_TIME = 24 * 60 * 60 * 1000;
+
+        async function init() {
+            loadApiKey();
+            loadBTPrefs();
+
+            const cached = localStorage.getItem(CACHE_KEY);
+            if (cached) {
+                globalData = JSON.parse(cached);
+                renderMP(globalData);
+                updateBTReadyState();
+
+                if (Date.now() - globalData.ts < EXPIRE_TIME) {
+                    setGlobalStatus(`使用快取數據 (${new Date(globalData.ts).toLocaleDateString()})`, 'ready');
+                } else {
+                    setGlobalStatus("緩存已過期，正在後台更新...", "wait");
+                    silentSync();
+                }
+            } else {
+                await forceSyncAll();
+            }
+
+            // BI 初始化與 Ticker 預加載
+            initBIDates();
+            loadBIImg();
+            fetchBTStockData(false);
+        }
+
+        function setGlobalStatus(text, type) {
+            const el = document.getElementById('mainStatusText');
+            const dot = document.getElementById('mainStatusDot');
+            el.innerText = text;
+            dot.className = `status-dot status-${type}`;
+        }
+
+        async function scrapeMultpl(url) {
+            const proxies = [
+                (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+                (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+                (u) => `https://thingproxy.freeboard.io/fetch/${u}`
+            ];
+            for (const getProxy of proxies) {
+                try {
+                    const res = await fetch(getProxy(url));
+                    if (!res.ok) continue;
+                    const json = await res.json();
+                    const html = json.contents || json;
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const rows = doc.querySelectorAll('#datatable tr');
+                    const results = [];
+                    rows.forEach((row, i) => { if (i === 0) return; const cols = row.querySelectorAll('td'); if (cols.length >= 2) results.push({ date: cols[0].innerText.trim(), val: parseFloat(cols[1].innerText.trim().replace(/,/g, '')) }); });
+                    if (results.length > 0) return results;
+                } catch (e) { console.warn("Proxy retry..."); }
+            }
+            throw new Error("All proxies failed for " + url);
+        }
+
+        async function forceSyncAll() {
+            setGlobalStatus("正在從資料源同步...", "wait");
+            try {
+                const capeRaw = await scrapeMultpl('https://www.multpl.com/shiller-pe/table/by-month');
+                await new Promise(r => setTimeout(r, 600));
+                const priceRaw = await scrapeMultpl('https://www.multpl.com/s-p-500-historical-prices/table/by-month');
+                await new Promise(r => setTimeout(r, 600));
+                const gdpRaw = await scrapeMultpl('https://www.multpl.com/us-gdp/table/by-quarter');
+
+                globalData = {
+                    ts: Date.now(),
+                    cape: capeRaw[0].val,
+                    price: priceRaw[0].val,
+                    gdp: gdpRaw[0].val * 1000,
+                    history: {
+                        dates: capeRaw.map(d => d.date),
+                        cape: capeRaw.map(d => d.val),
+                        price: priceRaw.map(d => d.val),
+                        gdp: gdpRaw.map(d => ({ date: d.date, val: d.val * 1000 }))
+                    }
+                };
+                localStorage.setItem(CACHE_KEY, JSON.stringify(globalData));
+                renderMP(globalData);
+                updateBTReadyState();
+                setGlobalStatus(`同步成功 (${new Date().toLocaleDateString()})`, "ready");
+            } catch (e) {
+                setGlobalStatus("同步失敗，請檢查網路", "err");
+                console.error(e);
+            }
+        }
+
+        async function silentSync() { try { await forceSyncAll(); } catch (e) { } }
+
+        // --- 3. Market Pulse 模組 (mp-*) ---
+        let mpMode = 'market';
+        let mpMonths = 120;
+        let mpChart = null;
+
+        function changeMPMode(mode) {
+            mpMode = mode;
+            document.querySelectorAll('#mp-modeControls .mode-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('mp-btn' + (mode.charAt(0).toUpperCase() + mode.slice(1))).classList.add('active');
+            if (mode === 'calc') {
+                document.getElementById('mp-timeRangeControls').classList.add('invisible');
+                document.getElementById('mp-chartContainer').classList.add('hidden');
+                document.getElementById('mp-calculatorContainer').classList.remove('hidden');
+                calculateMPInvestment();
+            } else {
+                document.getElementById('mp-timeRangeControls').classList.remove('invisible');
+                document.getElementById('mp-chartContainer').classList.remove('hidden');
+                document.getElementById('mp-calculatorContainer').classList.add('hidden');
+                renderMP(globalData);
+            }
+        }
+
+        function changeMPRange(months) {
+            mpMonths = months;
+            document.querySelectorAll('#mp-timeRangeControls .range-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            renderMP(globalData);
+        }
+
+        function renderMP(data) {
+            if (!data) return;
+            document.getElementById('mp-capeVal').innerText = data.cape.toFixed(2);
+            document.getElementById('mp-priceVal').innerText = "$" + data.price.toFixed(0);
+            document.getElementById('mp-gdpVal').innerText = "GDP: $" + (data.gdp / 1000).toFixed(2) + " T";
+            document.getElementById('mp-buffettVal').innerText = (data.price / data.gdp * 1000).toFixed(1) + "%";
+
+            const status = document.getElementById('mp-capeStatus');
+            if (data.cape > 32) { status.innerText = "🚨 極度高估"; status.className = "mt-4 text-[10px] py-1 px-3 bg-rose-900 text-rose-200 rounded-full inline-block"; }
+            else if (data.cape < 20) { status.innerText = "💎 價值區域"; status.className = "mt-4 text-[10px] py-1 px-3 bg-emerald-900 text-emerald-200 rounded-full inline-block"; }
+            else { status.innerText = "⚖️ 估值合理"; status.className = "mt-4 text-[10px] py-1 px-3 bg-blue-900 text-blue-200 rounded-full inline-block"; }
+
+            if (mpMode === 'calc') return;
+
+            let count = mpMonths === 0 ? data.history.dates.length : mpMonths;
+            const dates = data.history.dates.slice(0, count).reverse();
+            const prices = data.history.price.slice(0, count).reverse();
+
+            const datasets = [{ label: 'SP500', data: prices, borderColor: '#3b82f6', yAxisID: 'y', borderWidth: 2, pointRadius: 0, tension: 0.1 }];
+            if (mpMode === 'market') {
+                datasets.push({ label: 'CAPE', data: data.history.cape.slice(0, count).reverse(), borderColor: '#f43f5e', yAxisID: 'y1', borderWidth: 2, pointRadius: 0 });
+            } else if (mpMode === 'buffett') {
+                const gdpSorted = [...data.history.gdp].sort((a, b) => new Date(b.date) - new Date(a.date));
+                const bData = data.history.price.slice(0, count).map((p, i) => {
+                    const d = new Date(data.history.dates[i]);
+                    const g = gdpSorted.find(x => new Date(x.date) <= d) || gdpSorted[gdpSorted.length - 1];
+                    return (p / g.val * 1000).toFixed(1);
+                }).reverse();
+                datasets.push({ label: 'Buffett %', data: bData, borderColor: '#10b981', yAxisID: 'y1', borderWidth: 2, pointRadius: 0 });
+            }
+
+            const ctx = document.getElementById('mp-dualChart').getContext('2d');
+            if (mpChart) mpChart.destroy();
+            mpChart = new Chart(ctx, {
+                type: 'line', data: { labels: dates, datasets: datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { position: 'left', grid: { color: 'rgba(51, 65, 85, 0.5)' }, ticks: { color: '#3b82f6' } },
+                        y1: { position: 'right', grid: { display: false }, ticks: { color: mpMode === 'market' ? '#f43f5e' : '#10b981' } }
+                    }
+                }
+            });
+        }
+
+        function calculateMPInvestment() {
+            if (!globalData) return;
+            const amt = parseFloat(document.getElementById('mp-calcAmount').value) || 0;
+            const yrs = parseFloat(document.getElementById('mp-calcPeriod').value) || 10;
+            const lev = parseFloat(document.getElementById('mp-calcLeverage').value) || 1;
+
+            const historyCape = globalData.history.cape.slice(0, yrs * 12);
+            const sorted = [...historyCape].sort((a, b) => a - b);
+            const rank = sorted.findIndex(v => v >= globalData.cape);
+            const cp = rank === -1 ? 1 : (rank / sorted.length);
+
+            const gdpSorted = [...globalData.history.gdp].sort((a, b) => new Date(b.date) - new Date(a.date));
+            const bHist = globalData.history.price.slice(0, 120).map((p, i) => {
+                const d = new Date(globalData.history.dates[i]);
+                const g = gdpSorted.find(x => new Date(x.date) <= d) || gdpSorted[0];
+                return p / g.val * 1000;
+            });
+            const mb = bHist.reduce((a, b) => a + b, 0) / bHist.length;
+            const sb = Math.sqrt(bHist.map(x => Math.pow(x - mb, 2)).reduce((a, b) => a + b, 0) / bHist.length);
+            const cb = globalData.price / globalData.gdp * 1000;
+            const z = (cb - mb) / sb;
+            let bs = Math.max(0, Math.min(1, (z + 2) / 4));
+
+            const heat = (cp + bs) / 2;
+            const ratio = Math.pow(1 - heat, lev);
+            const final = amt * ratio;
+
+            document.getElementById('mp-resAmount').innerText = '$' + Math.round(final).toLocaleString();
+            document.getElementById('mp-resFormula').innerHTML = `建議投資額 = $${amt.toLocaleString()} × (1 - ${heat.toFixed(4)}) <sup>${lev}</sup>`;
+            document.getElementById('mp-resDetails').innerHTML = `<div class="grid grid-cols-2 gap-4 text-[11px] font-mono"><div class="border-b border-slate-800 pb-1"><span class="text-slate-500">CAPE ${yrs}Y %</span><div class="text-rose-400 font-bold">${(cp * 100).toFixed(1)}%</div></div><div class="border-b border-slate-800 pb-1"><span class="text-slate-500">Buffett Z-Score</span><div class="text-emerald-400 font-bold">${z.toFixed(2)} σ</div></div></div>`;
+        }
+
+        // --- 4. BI Dashboard 模組 (bi-*) ---
+        let biSuffix = 'BI-Chart5';
+        let biPrimary = "", biSecondary = "";
+
+        function initBIDates() {
+            const now = new Date();
+            const day = now.getDay(), hr = now.getHours();
+            let d1 = new Date(now);
+            if (day === 5 && hr < 16) d1.setDate(now.getDate() - 7);
+            else { let diff = (day >= 5) ? (day - 5) : (day + 2); d1.setDate(now.getDate() - diff); }
+            biPrimary = fmtDate(d1);
+            let d2 = new Date(d1); d2.setDate(d1.getDate() - 7);
+            biSecondary = fmtDate(d2);
+        }
+
+        function fmtDate(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+
+        function loadBIImg(fallback = false) {
+            const date = fallback ? biSecondary : biPrimary;
+            const url = `https://cmv.imgix.net/model-charts/${date}-${biSuffix}.png?w=1080&fm=png&q=30`;
+            const img = document.getElementById('bi-displayImg');
+            const status = document.getElementById('bi-dateStatus');
+            img.src = url;
+            document.getElementById('bi-linkNewTab').href = url;
+            document.getElementById('bi-urlDebug').innerText = `來源日期：${date}`;
+            img.onload = () => {
+                if (fallback) { status.innerText = `💡 顯示上週存檔 (${date})`; status.className = "text-[10px] font-mono italic mt-2 text-amber-500"; }
+                else { status.innerText = `✅ 數據已更新 (${date})`; status.className = "text-[10px] font-mono italic mt-2 text-emerald-500"; }
+            };
+            img.onerror = () => { if (!fallback) loadBIImg(true); else status.innerText = "❌ 圖片載入失敗"; };
+        }
+
+        function changeBISuffix(btn, s, t) {
+            biSuffix = s;
+            document.querySelectorAll('#view-bi-dashboard .tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('bi-chartTitle').innerHTML = `<span class="w-2 h-6 bg-indigo-500 rounded-full"></span> ${t}`;
+            loadBIImg(false);
+        }
+
+        // --- 5. Backtest Pro 模組 (bt-*) ---
+        let btChart = null;
+
+        function updateBTReadyState() {
+            const btn = document.getElementById('bt-runBtn');
+            if (globalData && btStockData.length > 0) {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        async function fetchBTStockData(force = false) {
+            const ticker = document.getElementById('bt-tickerSelect').value;
+            const key = document.getElementById('bt-apiKeyInput').value;
+            const ck = `bt_stock_${ticker}`;
+            const cached = localStorage.getItem(ck);
+            if (!force && cached) {
+                try {
+                    const { data, ts } = JSON.parse(cached);
+                    if (Date.now() - ts < 3 * 24 * 60 * 60 * 1000) {
+                        btStockData = data.map(d => ({ ...d, date: new Date(d.date) }));
+                        updateBTReadyState();
+                        return;
+                    }
+                } catch (e) { }
+            }
+            if (!key) return;
+            try {
+                const res = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_WEEKLY&symbol=${ticker}&apikey=${key}`);
+                const json = await res.json();
+                if (json["Weekly Time Series"]) {
+                    const series = json["Weekly Time Series"];
+                    btStockData = Object.keys(series).map(d => ({ date: new Date(d), price: parseFloat(series[d]["4. close"]) })).sort((a, b) => a.date - b.date);
+                    localStorage.setItem(ck, JSON.stringify({ data: btStockData, ts: Date.now() }));
+                    updateBTReadyState();
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function handleBTTickerChange() { btStockData = []; updateBTReadyState(); fetchBTStockData(false); }
+
+        function runBacktest() {
+            if (!globalData || !btStockData.length) return;
+            const base = parseFloat(document.getElementById('bt-baseBudget').value);
+            const yrs = parseFloat(document.getElementById('bt-investmentYears').value);
+            const lb = parseFloat(document.getElementById('bt-lookbackYears').value);
+            const lev = parseFloat(document.getElementById('bt-leverage').value);
+
+            const start = new Date(Date.now() - yrs * 365 * 24 * 60 * 60 * 1000);
+            const filtered = btStockData.filter(d => d.date >= start);
+
+            let histA = [], cashA = 0, sharesA = 0, costA = 0;
+            const lbMs = lb * 365 * 24 * 60 * 60 * 1000;
+
+            const gdpSorted = [...globalData.history.gdp].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            for (let i = 0; i < filtered.length; i++) {
+                const w = filtered[i];
+                const knownCape = globalData.history.cape.filter((v, idx) => new Date(globalData.history.dates[idx]) <= w.date);
+                const knownPrices = globalData.history.price.filter((v, idx) => new Date(globalData.history.dates[idx]) <= w.date);
+                if (knownCape.length < 12) continue;
+
+                // CAPE Rank
+                const windowStart = new Date(w.date.getTime() - lbMs);
+                const refCapes = globalData.history.cape.filter((v, idx) => {
+                    const d = new Date(globalData.history.dates[idx]);
+                    return d <= w.date && d >= windowStart;
+                });
+                const sorted = [...refCapes].sort((a, b) => a - b);
+                const rank = sorted.findIndex(v => v >= knownCape[knownCape.length - 1]);
+                const cp = rank === -1 ? 1 : (rank / sorted.length);
+
+                // Buffett Score
+                const refPrices = globalData.history.price.filter((v, idx) => {
+                    const d = new Date(globalData.history.dates[idx]);
+                    return d <= w.date && d >= windowStart;
+                });
+                const bHist = refPrices.map((p, idx) => {
+                    const d = new Date(globalData.history.dates[globalData.history.price.indexOf(p)]);
+                    const g = gdpSorted.find(x => new Date(x.date) <= d) || gdpSorted[0];
+                    return p / g.val * 1000;
+                });
+                const mb = bHist.reduce((a, b) => a + b, 0) / bHist.length;
+                const sb = Math.sqrt(bHist.map(x => Math.pow(x - mb, 2)).reduce((a, b) => a + b, 0) / bHist.length) || 1;
+                const curPrice = knownPrices[knownPrices.length - 1];
+                const curGDP = (gdpSorted.find(x => new Date(x.date) <= w.date) || gdpSorted[0]).val;
+                const z = (curPrice / curGDP * 1000 - mb) / sb;
+                const bs = Math.max(0, Math.min(1, (z + 2) / 4));
+
+                const heat = (cp + bs) / 2;
+                const budget = base * Math.pow(1 - heat, lev);
+                cashA += budget; costA += budget;
+                const buy = Math.floor(cashA / w.price);
+                cashA -= buy * w.price; sharesA += buy;
+
+                histA.push({ date: w.date, price: w.price, heat: heat, budget, bought: buy, shares: sharesA, asset: sharesA * w.price + cashA, cape: knownCape[knownCape.length - 1], zScore: z, capeRank: cp });
+            }
+
+            const costB = costA;
+            const avgB = costB / histA.length;
+            let histB = [], cashB = 0, sharesB = 0;
+            for (let i = 0; i < histA.length; i++) {
+                cashB += avgB;
+                const buy = Math.floor(cashB / histA[i].price);
+                cashB -= buy * histA[i].price; sharesB += buy;
+                histB.push({ asset: sharesB * histA[i].price + cashB });
+            }
+
+            renderBTResults(histA, histB, costA);
+        }
+
+        function renderBTResults(histA, histB, cost) {
+            document.getElementById('bt-resultsArea').classList.remove('hidden');
+            const lastA = histA[histA.length - 1], lastB = histB[histB.length - 1];
+            const retA = (lastA.asset - cost) / cost * 100, retB = (lastB.asset - cost) / cost * 100;
+
+            document.getElementById('bt-resA_return').innerText = (retA > 0 ? '+' : '') + retA.toFixed(2) + '%';
+            document.getElementById('bt-resA_cost').innerText = '$' + Math.round(cost).toLocaleString();
+            document.getElementById('bt-resA_value').innerText = '$' + Math.round(lastA.asset).toLocaleString();
+            document.getElementById('bt-resB_return').innerText = (retB > 0 ? '+' : '') + retB.toFixed(2) + '%';
+            document.getElementById('bt-resB_cost').innerText = '$' + Math.round(cost).toLocaleString();
+            document.getElementById('bt-resB_value').innerText = '$' + Math.round(lastB.asset).toLocaleString();
+
+            const ctx = document.getElementById('bt-mainChart').getContext('2d');
+            if (btChart) btChart.destroy();
+            btChart = new Chart(ctx, {
+                type: 'line', data: {
+                    labels: histA.map(d => d.date.toLocaleDateString()), datasets: [
+                        { label: '模型策略', data: histA.map(d => d.asset), borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,0.1)', fill: true, pointRadius: 0 },
+                        { label: '定期定額', data: histB.map(d => d.asset), borderColor: '#34d399', fill: false, pointRadius: 0 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#cbd5e1' } } }, scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' } } } }
+            });
+
+            const bar = document.getElementById('bt-heatBar'); bar.innerHTML = '';
+            const step = Math.ceil(histA.length / 100);
+            for (let i = 0; i < histA.length; i += step) {
+                const div = document.createElement('div'); div.style.flex = 1;
+                div.style.backgroundColor = `hsl(${200 - histA[i].heat * 200}, 70%, 50%)`;
+                bar.appendChild(div);
+            }
+
+            const tbody = document.getElementById('bt-tableBody'); tbody.innerHTML = '';
+            histA.slice(-100).reverse().forEach(r => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td class="text-slate-500">${r.date.toISOString().split('T')[0]}</td><td>${r.price.toFixed(2)}</td><td>${r.cape.toFixed(1)}</td><td>${r.zScore.toFixed(2)}</td><td class="font-bold ${(r.heat > 0.6 ? 'text-rose-400' : (r.heat < 0.4 ? 'text-emerald-400' : 'text-amber-400'))}">${(r.heat * 100).toFixed(0)}%</td><td class="text-indigo-300 font-mono">$${Math.round(r.budget)}</td><td class="font-bold">${r.bought}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- 6. 偏好記憶 ---
+        function saveBTApiKey() { localStorage.setItem('av_api_key', document.getElementById('bt-apiKeyInput').value); }
+        function loadApiKey() { const k = localStorage.getItem('av_api_key'); if (k) document.getElementById('bt-apiKeyInput').value = k; }
+        function loadBTPrefs() { ['baseBudget', 'investmentYears', 'lookbackYears', 'leverage'].forEach(id => { const el = document.getElementById('bt-' + id); if (el) { const v = localStorage.getItem('bt_pref_' + id); if (v) el.value = v; el.addEventListener('change', (e) => localStorage.setItem('bt_pref_' + id, e.target.value)); } }); }
+
+        window.onload = init;
+    </script>
+</body>
+
+</html>

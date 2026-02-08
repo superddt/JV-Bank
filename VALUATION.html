@@ -407,7 +407,8 @@
                                         <th>Buffett (Z)</th>
                                         <th>Heat %</th>
                                         <th>回測預算</th>
-                                        <th>買入股數</th>
+                                        <th>A 買入</th>
+                                        <th>B 買入</th>
                                     </tr>
                                 </thead>
                                 <tbody id="bt-tableBody"></tbody>
@@ -948,7 +949,7 @@
                 const rB = validhistB[validhistB.length - 1 - i];
 
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td class="text-slate-500">${rA.date.toISOString().split('T')[0]}</td><td>${rA.price.toFixed(2)}</td><td>${rA.cape.toFixed(1)}</td><td>${rA.zScore.toFixed(2)}</td><td class="font-bold ${(rA.heat > 0.6 ? 'text-rose-400' : (rA.heat < 0.4 ? 'text-emerald-400' : 'text-amber-400'))}">${(rA.heat * 100).toFixed(0)}%</td><td class="text-indigo-300 font-mono">$${Math.round(rA.budget)}</td><td class="font-bold">${rA.bought}</td>`;
+                tr.innerHTML = `<td class="text-slate-500">${rA.date.toISOString().split('T')[0]}</td><td>${rA.price.toFixed(2)}</td><td>${rA.cape.toFixed(1)}</td><td>${rA.zScore.toFixed(2)}</td><td class="font-bold ${(rA.heat > 0.6 ? 'text-rose-400' : (rA.heat < 0.4 ? 'text-emerald-400' : 'text-amber-400'))}">${(rA.heat * 100).toFixed(0)}%</td><td class="text-indigo-300 font-mono">$${Math.round(rA.budget)}</td><td class="${rA.bought > 0 ? 'text-indigo-400 font-bold' : 'text-slate-600'}">${rA.bought}</td><td class="${rB.bought > 0 ? 'text-emerald-400 font-bold' : 'text-slate-600'}">${rB.bought}</td>`;
                 tbody.appendChild(tr);
             }
         }

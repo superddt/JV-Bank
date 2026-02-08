@@ -449,7 +449,12 @@
 
             const cached = localStorage.getItem(CACHE_KEY);
             if (cached) {
+                // Rehydrate dates from JSON string
                 globalData = JSON.parse(cached);
+                globalData.history.cape.forEach(d => d.date = new Date(d.date));
+                globalData.history.price.forEach(d => d.date = new Date(d.date));
+                globalData.history.gdp.forEach(d => d.date = new Date(d.date));
+
                 renderMP(globalData);
                 updateBTReadyState();
 
@@ -514,10 +519,9 @@
                     price: priceRaw[0].val,
                     gdp: gdpRaw[0].val * 1000,
                     history: {
-                        dates: capeRaw.map(d => d.date),
-                        cape: capeRaw.map(d => d.val),
-                        price: priceRaw.map(d => d.val),
-                        gdp: gdpRaw.map(d => ({ date: d.date, val: d.val * 1000 }))
+                        cape: capeRaw.map(d => ({ date: new Date(d.date), val: d.val })),
+                        price: priceRaw.map(d => ({ date: new Date(d.date), val: d.val })),
+                        gdp: gdpRaw.map(d => ({ date: new Date(d.date), val: d.val * 1000 }))
                     }
                 };
                 localStorage.setItem(CACHE_KEY, JSON.stringify(globalData));
@@ -563,39 +567,71 @@
 
         function renderMP(data) {
             if (!data) return;
-            document.getElementById('mp-capeVal').innerText = data.cape.toFixed(2);
-            document.getElementById('mp-priceVal').innerText = "$" + data.price.toFixed(0);
-            document.getElementById('mp-gdpVal').innerText = "GDP: $" + (data.gdp / 1000).toFixed(2) + " T";
-            document.getElementById('mp-buffettVal').innerText = (data.price / data.gdp * 1000).toFixed(1) + "%";
+            // Use most recent values
+            const curCape = data.history.cape[0];
+            const curPrice = data.history.price[0];
+            const curGdp = data.history.gdp[0];
+
+            document.getElementById('mp-capeVal').innerText = curCape.val.toFixed(2);
+            document.getElementById('mp-priceVal').innerText = "$" + curPrice.val.toFixed(0);
+            document.getElementById('mp-gdpVal').innerText = "GDP: $" + (curGdp.val / 1000).toFixed(2) + " T";
+            document.getElementById('mp-buffettVal').innerText = (curPrice.val / curGdp.val * 1000).toFixed(1) + "%";
 
             const status = document.getElementById('mp-capeStatus');
-            if (data.cape > 32) { status.innerText = "🚨 極度高估"; status.className = "mt-4 text-[10px] py-1 px-3 bg-rose-900 text-rose-200 rounded-full inline-block"; }
-            else if (data.cape < 20) { status.innerText = "💎 價值區域"; status.className = "mt-4 text-[10px] py-1 px-3 bg-emerald-900 text-emerald-200 rounded-full inline-block"; }
+            if (curCape.val > 32) { status.innerText = "🚨 極度高估"; status.className = "mt-4 text-[10px] py-1 px-3 bg-rose-900 text-rose-200 rounded-full inline-block"; }
+            else if (curCape.val < 20) { status.innerText = "💎 價值區域"; status.className = "mt-4 text-[10px] py-1 px-3 bg-emerald-900 text-emerald-200 rounded-full inline-block"; }
             else { status.innerText = "⚖️ 估值合理"; status.className = "mt-4 text-[10px] py-1 px-3 bg-blue-900 text-blue-200 rounded-full inline-block"; }
 
             if (mpMode === 'calc') return;
 
-            let count = mpMonths === 0 ? data.history.dates.length : mpMonths;
-            const dates = data.history.dates.slice(0, count).reverse();
-            const prices = data.history.price.slice(0, count).reverse();
+            // Prepare Chart Data
+            // Master dates from Price (most frequent usually)
+            // Sort Descending (Newest first)
+            const prices = [...data.history.price].sort((a, b) => b.date - a.date);
+            let displayData = mpMonths === 0 ? prices : prices.slice(0, mpMonths);
 
-            const datasets = [{ label: 'SP500', data: prices, borderColor: '#3b82f6', yAxisID: 'y', borderWidth: 2, pointRadius: 0, tension: 0.1 }];
+            // Align other datasets to these dates
+            const labels = displayData.map(d => d.date.toLocaleDateString()); // Reverse later for Chart.js (Left=Old, Right=New)
+            const priceVals = displayData.map(d => d.val);
+
+            const datasets = [{
+                label: 'SP500',
+                data: priceVals.reverse(), // Chart.js needs Old -> New
+                borderColor: '#3b82f6',
+                yAxisID: 'y', borderWidth: 2, pointRadius: 0, tension: 0.1
+            }];
+
+            // Re-reverse labels for chart
+            const chartLabels = labels.reverse();
+
             if (mpMode === 'market') {
-                datasets.push({ label: 'CAPE', data: data.history.cape.slice(0, count).reverse(), borderColor: '#f43f5e', yAxisID: 'y1', borderWidth: 2, pointRadius: 0 });
+                // Align CAPE
+                const capeVals = displayData.map(p => {
+                    const c = data.history.cape.find(x => x.date <= p.date && x.date >= new Date(p.date.getTime() - 30 * 24 * 60 * 60 * 1000)); // approx match
+                    return c ? c.val : null;
+                });
+                datasets.push({
+                    label: 'CAPE',
+                    data: capeVals.reverse(),
+                    borderColor: '#f43f5e', yAxisID: 'y1', borderWidth: 2, pointRadius: 0
+                });
             } else if (mpMode === 'buffett') {
-                const gdpSorted = [...data.history.gdp].sort((a, b) => new Date(b.date) - new Date(a.date));
-                const bData = data.history.price.slice(0, count).map((p, i) => {
-                    const d = new Date(data.history.dates[i]);
-                    const g = gdpSorted.find(x => new Date(x.date) <= d) || gdpSorted[gdpSorted.length - 1];
-                    return (p / g.val * 1000).toFixed(1);
-                }).reverse();
-                datasets.push({ label: 'Buffett %', data: bData, borderColor: '#10b981', yAxisID: 'y1', borderWidth: 2, pointRadius: 0 });
+                const gdpSorted = [...data.history.gdp].sort((a, b) => b.date - a.date);
+                const bData = displayData.map(p => {
+                    const g = gdpSorted.find(x => x.date <= p.date) || gdpSorted[gdpSorted.length - 1];
+                    return (p.val / g.val * 1000).toFixed(1);
+                });
+                datasets.push({
+                    label: 'Buffett %',
+                    data: bData.reverse(),
+                    borderColor: '#10b981', yAxisID: 'y1', borderWidth: 2, pointRadius: 0
+                });
             }
 
             const ctx = document.getElementById('mp-dualChart').getContext('2d');
             if (mpChart) mpChart.destroy();
             mpChart = new Chart(ctx, {
-                type: 'line', data: { labels: dates, datasets: datasets },
+                type: 'line', data: { labels: chartLabels, datasets: datasets },
                 options: {
                     responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
                     plugins: { legend: { display: false } },
@@ -613,21 +649,43 @@
             const yrs = parseFloat(document.getElementById('mp-calcPeriod').value) || 10;
             const lev = parseFloat(document.getElementById('mp-calcLeverage').value) || 1;
 
-            const historyCape = globalData.history.cape.slice(0, yrs * 12);
-            const sorted = [...historyCape].sort((a, b) => a - b);
-            const rank = sorted.findIndex(v => v >= globalData.cape);
-            const cp = rank === -1 ? 1 : (rank / sorted.length);
+            const curDate = new Date();
+            const startWindow = new Date(curDate.getTime() - yrs * 365 * 24 * 60 * 60 * 1000);
 
-            const gdpSorted = [...globalData.history.gdp].sort((a, b) => new Date(b.date) - new Date(a.date));
-            const bHist = globalData.history.price.slice(0, 120).map((p, i) => {
-                const d = new Date(globalData.history.dates[i]);
-                const g = gdpSorted.find(x => new Date(x.date) <= d) || gdpSorted[0];
-                return p / g.val * 1000;
+            // CAPE Rank
+            const curCape = globalData.history.cape[0].val; // Assume sorted newest first from fetch/sync? 
+            // Actually, we need to ensure sorted. in forceSyncAll map preserves order. 
+            // Scrape usually returns newest first? multpl table is newest first.
+            // Let's explicitly sort to be safe.
+            const capeSorted = [...globalData.history.cape].sort((a, b) => b.date - a.date);
+
+            const historyCape = capeSorted.filter(d => d.date >= startWindow).map(d => d.val);
+            const sortedRank = [...historyCape].sort((a, b) => a - b);
+            const rank = sortedRank.findIndex(v => v >= curCape);
+            const cp = rank === -1 ? 1 : (rank / sortedRank.length);
+
+            // Buffett Z-Score
+            const gdpSorted = [...globalData.history.gdp].sort((a, b) => b.date - a.date);
+            const priceSorted = [...globalData.history.price].sort((a, b) => b.date - a.date);
+
+            // 10Y Lookback for Mean/Std (fixed 120 months approx)
+            const bWindowStart = new Date(curDate.getTime() - 10 * 365 * 24 * 60 * 60 * 1000);
+            const refPrices = priceSorted.filter(d => d.date >= bWindowStart);
+
+            const bHist = refPrices.map(p => {
+                const g = gdpSorted.find(x => x.date <= p.date) || gdpSorted[gdpSorted.length - 1];
+                return p.val / g.val * 1000;
             });
+
             const mb = bHist.reduce((a, b) => a + b, 0) / bHist.length;
-            const sb = Math.sqrt(bHist.map(x => Math.pow(x - mb, 2)).reduce((a, b) => a + b, 0) / bHist.length);
-            const cb = globalData.price / globalData.gdp * 1000;
-            const z = (cb - mb) / sb;
+            const sb = Math.sqrt(bHist.map(x => Math.pow(x - mb, 2)).reduce((a, b) => a + b, 0) / bHist.length) || 1;
+
+            const curPrice = priceSorted[0].val;
+            // Align current GDP to current price roughly
+            const curGdp = (gdpSorted.find(x => x.date <= priceSorted[0].date) || gdpSorted[0]).val;
+            const curBuffett = curPrice / curGdp * 1000;
+
+            const z = (curBuffett - mb) / sb;
             let bs = Math.max(0, Math.min(1, (z + 2) / 4));
 
             const heat = (cp + bs) / 2;
@@ -733,101 +791,166 @@
             let histA = [], cashA = 0, sharesA = 0, costA = 0;
             const lbMs = lb * 365 * 24 * 60 * 60 * 1000;
 
-            const gdpSorted = [...globalData.history.gdp].sort((a, b) => new Date(b.date) - new Date(a.date));
+            // Sort helper since multpl data might be desc/asc
+            const gdpSorted = [...globalData.history.gdp].sort((a, b) => b.date - a.date);
+            const capeSorted = [...globalData.history.cape].sort((a, b) => a.date - b.date); // Oldest to newest for easy filtering
+            const priceSorted = [...globalData.history.price].sort((a, b) => a.date - b.date);
 
             for (let i = 0; i < filtered.length; i++) {
                 const w = filtered[i];
-                const knownCape = globalData.history.cape.filter((v, idx) => new Date(globalData.history.dates[idx]) <= w.date);
-                const knownPrices = globalData.history.price.filter((v, idx) => new Date(globalData.history.dates[idx]) <= w.date);
-                if (knownCape.length < 12) continue;
+                const currentDate = w.date;
 
-                // CAPE Rank
-                const windowStart = new Date(w.date.getTime() - lbMs);
-                const refCapes = globalData.history.cape.filter((v, idx) => {
-                    const d = new Date(globalData.history.dates[idx]);
-                    return d <= w.date && d >= windowStart;
-                });
-                const sorted = [...refCapes].sort((a, b) => a - b);
-                const rank = sorted.findIndex(v => v >= knownCape[knownCape.length - 1]);
-                const cp = rank === -1 ? 1 : (rank / sorted.length);
+                // 2.1 Get known data at this point in time
+                const knownCape = capeSorted.filter(d => d.date <= currentDate);
+                const knownPrices = priceSorted.filter(d => d.date <= currentDate);
+                const knownGdp = gdpSorted.filter(d => d.date <= currentDate); // Sorted desc
 
-                // Buffett Score
-                const refPrices = globalData.history.price.filter((v, idx) => {
-                    const d = new Date(globalData.history.dates[idx]);
-                    return d <= w.date && d >= windowStart;
-                });
-                const bHist = refPrices.map((p, idx) => {
-                    const d = new Date(globalData.history.dates[globalData.history.price.indexOf(p)]);
-                    const g = gdpSorted.find(x => new Date(x.date) <= d) || gdpSorted[0];
-                    return p / g.val * 1000;
-                });
-                const mb = bHist.reduce((a, b) => a + b, 0) / bHist.length;
-                const sb = Math.sqrt(bHist.map(x => Math.pow(x - mb, 2)).reduce((a, b) => a + b, 0) / bHist.length) || 1;
-                const curPrice = knownPrices[knownPrices.length - 1];
-                const curGDP = (gdpSorted.find(x => new Date(x.date) <= w.date) || gdpSorted[0]).val;
-                const z = (curPrice / curGDP * 1000 - mb) / sb;
-                const bs = Math.max(0, Math.min(1, (z + 2) / 4));
+                // Need enough history for calculations
+                if (knownCape.length < 12 || knownPrices.length < 12 || knownGdp.length === 0) {
+                    histA.push({ ...w, budget: 0, bought: 0, shares: 0, asset: 0, heat: 0.5, cape: 0, zScore: 0, capeRank: 0.5 });
+                    continue;
+                }
 
+                const currentCapeVal = knownCape[knownCape.length - 1].val;
+                const currentPriceVal = knownPrices[knownPrices.length - 1].val;
+                const currentGdpVal = knownGdp[0].val; // Most recent
+
+                // 2.2 Calculate Statistics (Rolling Window)
+                const windowStart = new Date(currentDate.getTime() - lbMs);
+
+                // CAPE Percentile
+                const windowCapes = knownCape.filter(d => d.date >= windowStart).map(d => d.val);
+                const refCapes = windowCapes.length > 12 ? windowCapes : knownCape.map(d => d.val);
+                const sortedRef = [...refCapes].sort((a, b) => a - b);
+                const rank = sortedRef.findIndex(v => v >= currentCapeVal);
+                const cp = rank === -1 ? 1 : (rank / sortedRef.length);
+
+                // Buffett Indicator Z-Score (Based on S&P 500)
+                const lookbackPrices = knownPrices.filter(d => d.date >= windowStart);
+
+                if (lookbackPrices.length < 12) {
+                    histA.push({ ...w, budget: base, bought: 0, shares: 0, asset: 0, heat: 0.5, cape: currentCapeVal, zScore: 0, capeRank: cp });
+                    continue;
+                }
+
+                const buffettHistory = lookbackPrices.map(p => {
+                    const d = p.date;
+                    const g = gdpSorted.find(x => x.date <= d) || gdpSorted[gdpSorted.length - 1];
+                    return (p.val / g.val * 1000);
+                });
+
+                const currentBuffettVal = currentPriceVal / currentGdpVal * 1000;
+                const meanB = buffettHistory.reduce((a, b) => a + b, 0) / buffettHistory.length;
+                const stdB = Math.sqrt(buffettHistory.map(x => Math.pow(x - meanB, 2)).reduce((a, b) => a + b, 0) / buffettHistory.length) || 1;
+
+                const zScore = (currentBuffettVal - meanB) / stdB;
+                const bs = Math.max(0, Math.min(1, (zScore + 2) / 4));
+
+                // 2.3 Calculate Heat & Budget
                 const heat = (cp + bs) / 2;
                 const budget = base * Math.pow(1 - heat, lev);
+
                 cashA += budget; costA += budget;
                 const buy = Math.floor(cashA / w.price);
-                cashA -= buy * w.price; sharesA += buy;
+                if (buy > 0) {
+                    cashA -= buy * w.price; sharesA += buy;
+                }
 
-                histA.push({ date: w.date, price: w.price, heat: heat, budget, bought: buy, shares: sharesA, asset: sharesA * w.price + cashA, cape: knownCape[knownCape.length - 1], zScore: z, capeRank: cp });
+                histA.push({
+                    date: w.date, price: w.price, heat: heat, budget, bought: buy,
+                    shares: sharesA, cash: cashA, asset: sharesA * w.price + cashA,
+                    cape: currentCapeVal, zScore: zScore, capeRank: cp
+                });
             }
 
-            const costB = costA;
-            const avgB = costB / histA.length;
-            let histB = [], cashB = 0, sharesB = 0;
+            // Strategy B (DCA)
+            // Calculate avg budget from Strategy A's valid weeks
+            const validWeeks = histA.filter(h => h.budget > 0).length;
+            const avgB = validWeeks > 0 ? (costA / validWeeks) : base;
+
+            let histB = [], cashB = 0, sharesB = 0, costB = 0;
+
             for (let i = 0; i < histA.length; i++) {
-                cashB += avgB;
-                const buy = Math.floor(cashB / histA[i].price);
-                cashB -= buy * histA[i].price; sharesB += buy;
-                histB.push({ asset: sharesB * histA[i].price + cashB });
+                const r = histA[i];
+                if (r.budget === 0) continue; // Skip warmup period
+
+                cashB += avgB; costB += avgB;
+                const buy = Math.floor(cashB / r.price);
+                if (buy > 0) {
+                    cashB -= buy * r.price; sharesB += buy;
+                }
+
+                histB.push({
+                    date: r.date, price: r.price, budget: avgB, bought: buy, shares: sharesB,
+                    asset: sharesB * r.price + cashB
+                });
             }
 
-            renderBTResults(histA, histB, costA);
+            renderBTResults(histA, histB, costA, costB, avgB);
         }
 
-        function renderBTResults(histA, histB, cost) {
+        function renderBTResults(histA, histB, costA, costB, avgB) {
             document.getElementById('bt-resultsArea').classList.remove('hidden');
             const lastA = histA[histA.length - 1], lastB = histB[histB.length - 1];
-            const retA = (lastA.asset - cost) / cost * 100, retB = (lastB.asset - cost) / cost * 100;
 
-            document.getElementById('bt-resA_return').innerText = (retA > 0 ? '+' : '') + retA.toFixed(2) + '%';
-            document.getElementById('bt-resA_cost').innerText = '$' + Math.round(cost).toLocaleString();
+            // Stats
+            const retA = ((lastA.asset - costA) / costA * 100).toFixed(2);
+            document.getElementById('bt-resA_return').innerText = (retA > 0 ? '+' : '') + retA + '%';
+            document.getElementById('bt-resA_return').className = `text-3xl font-black ${retA >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+            document.getElementById('bt-resA_cost').innerText = '$' + Math.round(costA).toLocaleString();
             document.getElementById('bt-resA_value').innerText = '$' + Math.round(lastA.asset).toLocaleString();
-            document.getElementById('bt-resB_return').innerText = (retB > 0 ? '+' : '') + retB.toFixed(2) + '%';
-            document.getElementById('bt-resB_cost').innerText = '$' + Math.round(cost).toLocaleString();
+
+            const retB = ((lastB.asset - costB) / costB * 100).toFixed(2);
+            document.getElementById('bt-resB_return').innerText = (retB > 0 ? '+' : '') + retB + '%';
+            document.getElementById('bt-resB_return').className = `text-3xl font-black ${retB >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+            document.getElementById('bt-resB_cost').innerText = '$' + Math.round(costB).toLocaleString();
             document.getElementById('bt-resB_value').innerText = '$' + Math.round(lastB.asset).toLocaleString();
 
+            // Chart
             const ctx = document.getElementById('bt-mainChart').getContext('2d');
             if (btChart) btChart.destroy();
+
+            // Align Chart Data
+            const len = Math.min(histA.length, histB.length);
+            const sliceA = histA.slice(histA.length - len);
+            const sliceB = histB.slice(histB.length - len);
+
             btChart = new Chart(ctx, {
                 type: 'line', data: {
-                    labels: histA.map(d => d.date.toLocaleDateString()), datasets: [
-                        { label: '模型策略', data: histA.map(d => d.asset), borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,0.1)', fill: true, pointRadius: 0 },
-                        { label: '定期定額', data: histB.map(d => d.asset), borderColor: '#34d399', fill: false, pointRadius: 0 }
+                    labels: sliceA.map(d => d.date.toLocaleDateString()), datasets: [
+                        { label: '估值模型', data: sliceA.map(d => d.asset), borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,0.1)', fill: true, pointRadius: 0 },
+                        { label: '定期定額', data: sliceB.map(d => d.asset), borderColor: '#34d399', fill: false, pointRadius: 0 }
                     ]
                 },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#cbd5e1' } } }, scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' } } } }
             });
 
+            // Heat Bar
             const bar = document.getElementById('bt-heatBar'); bar.innerHTML = '';
             const step = Math.ceil(histA.length / 100);
             for (let i = 0; i < histA.length; i += step) {
                 const div = document.createElement('div'); div.style.flex = 1;
                 div.style.backgroundColor = `hsl(${200 - histA[i].heat * 200}, 70%, 50%)`;
+                div.title = `${histA[i].date.toLocaleDateString()}: ${(histA[i].heat * 100).toFixed(0)}%`;
                 bar.appendChild(div);
             }
 
+            // Table
             const tbody = document.getElementById('bt-tableBody'); tbody.innerHTML = '';
-            histA.slice(-100).reverse().forEach(r => {
+            // Only show valid rows (where budget > 0)
+            const validhistA = histA.filter(r => r.budget > 0);
+            const validhistB = histB; // Should match roughly
+            const tableLen = Math.min(validhistA.length, validhistB.length, 100);
+
+            // Reverse iterate
+            for (let i = 0; i < tableLen; i++) {
+                const rA = validhistA[validhistA.length - 1 - i];
+                const rB = validhistB[validhistB.length - 1 - i];
+
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td class="text-slate-500">${r.date.toISOString().split('T')[0]}</td><td>${r.price.toFixed(2)}</td><td>${r.cape.toFixed(1)}</td><td>${r.zScore.toFixed(2)}</td><td class="font-bold ${(r.heat > 0.6 ? 'text-rose-400' : (r.heat < 0.4 ? 'text-emerald-400' : 'text-amber-400'))}">${(r.heat * 100).toFixed(0)}%</td><td class="text-indigo-300 font-mono">$${Math.round(r.budget)}</td><td class="font-bold">${r.bought}</td>`;
+                tr.innerHTML = `<td class="text-slate-500">${rA.date.toISOString().split('T')[0]}</td><td>${rA.price.toFixed(2)}</td><td>${rA.cape.toFixed(1)}</td><td>${rA.zScore.toFixed(2)}</td><td class="font-bold ${(rA.heat > 0.6 ? 'text-rose-400' : (rA.heat < 0.4 ? 'text-emerald-400' : 'text-amber-400'))}">${(rA.heat * 100).toFixed(0)}%</td><td class="text-indigo-300 font-mono">$${Math.round(rA.budget)}</td><td class="font-bold">${rA.bought}</td>`;
                 tbody.appendChild(tr);
-            });
+            }
         }
 
         // --- 6. 偏好記憶 ---

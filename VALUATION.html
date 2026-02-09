@@ -461,31 +461,47 @@
             loadApiKey();
             loadBTPrefs();
 
-            const cached = localStorage.getItem(CACHE_KEY);
-            if (cached) {
-                // Rehydrate dates from JSON string
-                globalData = JSON.parse(cached);
-                globalData.history.cape.forEach(d => d.date = new Date(d.date));
-                globalData.history.price.forEach(d => d.date = new Date(d.date));
-                globalData.history.gdp.forEach(d => d.date = new Date(d.date));
-
-                renderMP(globalData);
-                updateBTReadyState();
-
-                if (Date.now() - globalData.ts < EXPIRE_TIME) {
-                    setGlobalStatus(`使用快取數據 (${new Date(globalData.ts).toLocaleDateString()})`, 'ready');
-                } else {
-                    setGlobalStatus("緩存已過期，正在後台更新...", "wait");
-                    silentSync();
+            // 優先嘗試加載靜態 JSON (GH Action 同步結果)
+            let loadedFromRepo = false;
+            try {
+                const repoRes = await fetch('../data/market_data.json');
+                if (repoRes.ok) {
+                    const repoData = await repoRes.json();
+                    rehydrateGlobalData(repoData);
+                    loadedFromRepo = true;
+                    setGlobalStatus(`已同步官方數據 (${new Date(globalData.ts).toLocaleDateString()})`, 'ready');
                 }
-            } else {
-                await forceSyncAll();
+            } catch (e) { console.warn("Repo data not found, checking local cache..."); }
+
+            if (!loadedFromRepo) {
+                const cached = localStorage.getItem(CACHE_KEY);
+                if (cached) {
+                    rehydrateGlobalData(JSON.parse(cached));
+                    if (Date.now() - globalData.ts < EXPIRE_TIME) {
+                        setGlobalStatus(`使用本機快取 (${new Date(globalData.ts).toLocaleDateString()})`, 'ready');
+                    } else {
+                        setGlobalStatus("緩存已過期，正在後台更新...", "wait");
+                        silentSync();
+                    }
+                } else {
+                    await forceSyncAll();
+                }
             }
+
+            renderMP(globalData);
+            updateBTReadyState();
 
             // BI 初始化與 Ticker 預加載
             initBIDates();
             loadBIImg();
             fetchBTStockData(false);
+        }
+
+        function rehydrateGlobalData(data) {
+            globalData = data;
+            globalData.history.cape.forEach(d => d.date = new Date(d.date));
+            globalData.history.price.forEach(d => d.date = new Date(d.date));
+            globalData.history.gdp.forEach(d => d.date = new Date(d.date));
         }
 
         function setGlobalStatus(text, type) {
@@ -521,6 +537,21 @@
         async function forceSyncAll() {
             setGlobalStatus("正在從資料源同步...", "wait");
             try {
+                // 1. 先嘗試從 Repo JSON 同步 (這也是最穩定的來源)
+                try {
+                    const repoRes = await fetch('../data/market_data.json?t=' + Date.now());
+                    if (repoRes.ok) {
+                        const repoData = await repoRes.json();
+                        rehydrateGlobalData(repoData);
+                        localStorage.setItem(CACHE_KEY, JSON.stringify(globalData));
+                        renderMP(globalData);
+                        updateBTReadyState();
+                        setGlobalStatus(`同步成功: 官方數據 (${new Date(globalData.ts).toLocaleDateString()})`, "ready");
+                        return;
+                    }
+                } catch (e) { console.warn("Repo sync failed, falling back to scrapers..."); }
+
+                // 2. 備案：傳統 Scraping
                 const capeRaw = await scrapeMultpl('https://www.multpl.com/shiller-pe/table/by-month');
                 await new Promise(r => setTimeout(r, 600));
                 const priceRaw = await scrapeMultpl('https://www.multpl.com/s-p-500-historical-prices/table/by-month');
@@ -541,7 +572,7 @@
                 localStorage.setItem(CACHE_KEY, JSON.stringify(globalData));
                 renderMP(globalData);
                 updateBTReadyState();
-                setGlobalStatus(`同步成功 (${new Date().toLocaleDateString()})`, "ready");
+                setGlobalStatus(`同步成功: 實時抓取 (${new Date().toLocaleDateString()})`, "ready");
             } catch (e) {
                 setGlobalStatus("同步失敗，請檢查網路", "err");
                 console.error(e);

@@ -464,7 +464,7 @@
             // 優先嘗試加載靜態 JSON (GH Action 同步結果)
             let loadedFromRepo = false;
             try {
-                const repoRes = await fetch('../data/market_data.json');
+                const repoRes = await fetch('data/market_data.json');
                 if (repoRes.ok) {
                     const repoData = await repoRes.json();
                     rehydrateGlobalData(repoData);
@@ -539,7 +539,7 @@
             try {
                 // 1. 先嘗試從 Repo JSON 同步 (這也是最穩定的來源)
                 try {
-                    const repoRes = await fetch('../data/market_data.json?t=' + Date.now());
+                    const repoRes = await fetch('data/market_data.json?t=' + Date.now());
                     if (repoRes.ok) {
                         const repoData = await repoRes.json();
                         rehydrateGlobalData(repoData);

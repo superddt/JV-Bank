@@ -447,6 +447,17 @@
         const EXPIRE_TIME = 24 * 60 * 60 * 1000;
 
         async function init() {
+            // Load MP Strategy Params
+            const savedMPParams = localStorage.getItem('mp_calc_params');
+            if (savedMPParams) {
+                try {
+                    const p = JSON.parse(savedMPParams);
+                    if (p.amount) document.getElementById('mp-calcAmount').value = p.amount;
+                    if (p.period) document.getElementById('mp-calcPeriod').value = p.period;
+                    if (p.leverage) document.getElementById('mp-calcLeverage').value = p.leverage;
+                } catch (e) { console.error("Error loading MP params", e); }
+            }
+
             loadApiKey();
             loadBTPrefs();
 
@@ -651,6 +662,9 @@
             const amt = parseFloat(document.getElementById('mp-calcAmount').value) || 0;
             const yrs = parseFloat(document.getElementById('mp-calcPeriod').value) || 10;
             const lev = parseFloat(document.getElementById('mp-calcLeverage').value) || 1;
+
+            // Save MP Strategy Params
+            localStorage.setItem('mp_calc_params', JSON.stringify({ amount: amt, period: yrs, leverage: lev }));
 
             const curDate = new Date();
             const startWindow = new Date(curDate.getTime() - yrs * 365 * 24 * 60 * 60 * 1000);

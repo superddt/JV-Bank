@@ -464,7 +464,7 @@
             // 優先嘗試加載靜態 JSON (GH Action 同步結果)
             let loadedFromRepo = false;
             try {
-                const repoRes = await fetch('data/market_data.json');
+                const repoRes = await fetch('../data/market_data.json');
                 if (repoRes.ok) {
                     const repoData = await repoRes.json();
                     rehydrateGlobalData(repoData);
@@ -539,7 +539,7 @@
             try {
                 // 1. 先嘗試從 Repo JSON 同步 (這也是最穩定的來源)
                 try {
-                    const repoRes = await fetch('data/market_data.json?t=' + Date.now());
+                    const repoRes = await fetch('../data/market_data.json?t=' + Date.now());
                     if (repoRes.ok) {
                         const repoData = await repoRes.json();
                         rehydrateGlobalData(repoData);
@@ -751,10 +751,21 @@
 
         function initBIDates() {
             const now = new Date();
-            const day = now.getDay(), hr = now.getHours();
+            const day = now.getDay(); // 0-6
             let d1 = new Date(now);
-            if (day === 5 && hr < 16) d1.setDate(now.getDate() - 7);
-            else { let diff = (day >= 5) ? (day - 5) : (day + 2); d1.setDate(now.getDate() - diff); }
+
+            // Calculate difference to find the target Friday
+            // We update only AFTER Saturday 00:00.
+            // If today is Sat(6), we want Friday of this week.
+            // If today is Sun(0)...Fri(5), we want Friday of last week.
+            let diff;
+            if (day === 6) {
+                diff = 1; // Yesterday was Friday
+            } else {
+                diff = day + 2; // e.g. Sun(0) -> 2 days ago (Fri), Mon(1) -> 3 days ago (Fri), Fri(5) -> 7 days ago (Fri)
+            }
+
+            d1.setDate(now.getDate() - diff);
             biPrimary = fmtDate(d1);
             let d2 = new Date(d1); d2.setDate(d1.getDate() - 7);
             biSecondary = fmtDate(d2);
@@ -762,19 +773,94 @@
 
         function fmtDate(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 
-        function loadBIImg(fallback = false) {
+        /**
+         * 處理圖片：裁切上方 64px 並反白顏色
+         */
+        async function processImage(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const cropHeight = 64;
+
+                    canvas.width = img.width;
+                    canvas.height = Math.max(0, img.height - cropHeight);
+
+                    // 裁切繪製
+                    ctx.drawImage(img, 0, cropHeight, img.width, img.height - cropHeight, 0, 0, canvas.width, canvas.height);
+
+                    // 顏色反白 (Negative Effect)
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageData.data;
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = 255 - data[i];     // R
+                        data[i + 1] = 255 - data[i + 1]; // G
+                        data[i + 2] = 255 - data[i + 2]; // B
+                        // alpha (data[i+3]) 保持不變
+                    }
+                    ctx.putImageData(imageData, 0, 0);
+
+                    resolve(canvas.toDataURL('image/png'));
+                };
+                img.onerror = () => reject(new Error("圖片載入失敗，可能的 CORS 限制"));
+                img.src = url;
+            });
+        }
+
+        async function loadBIImg(fallback = false) {
             const date = fallback ? biSecondary : biPrimary;
-            const url = `https://cmv.imgix.net/model-charts/${date}-${biSuffix}.png?w=1080&fm=png&q=30`;
-            const img = document.getElementById('bi-displayImg');
+            const cacheKey = `bi_img_${date}_${biSuffix}`;
+            const cachedData = localStorage.getItem(cacheKey);
+
+            const displayImg = document.getElementById('bi-displayImg');
             const status = document.getElementById('bi-dateStatus');
-            img.src = url;
-            document.getElementById('bi-linkNewTab').href = url;
-            document.getElementById('bi-urlDebug').innerText = `來源日期：${date}`;
-            img.onload = () => {
-                if (fallback) { status.innerText = `💡 顯示上週存檔 (${date})`; status.className = "text-[10px] font-mono italic mt-2 text-amber-500"; }
-                else { status.innerText = `✅ 數據已更新 (${date})`; status.className = "text-[10px] font-mono italic mt-2 text-emerald-500"; }
-            };
-            img.onerror = () => { if (!fallback) loadBIImg(true); else status.innerText = "❌ 圖片載入失敗"; };
+            const debugUrl = document.getElementById('bi-urlDebug');
+            const linkNewTab = document.getElementById('bi-linkNewTab');
+
+            // 1. 檢查快取
+            if (cachedData) {
+                displayImg.src = cachedData;
+                debugUrl.innerText = `來源日期：${date} (從快取載入)`;
+                status.innerText = fallback ? `💡 顯示上週存檔 (${date})` : `✅ 數據已更新 (${date})`;
+                status.className = fallback ? "text-[10px] font-mono italic mt-2 text-amber-500" : "text-[10px] font-mono italic mt-2 text-emerald-500";
+                linkNewTab.href = `https://cmv.imgix.net/model-charts/${date}-${biSuffix}.png?w=1080&fm=png&q=30`;
+                return;
+            }
+
+            // 2. 正常載入與處理
+            const url = `https://cmv.imgix.net/model-charts/${date}-${biSuffix}.png?w=1080&fm=png&q=30`;
+            linkNewTab.href = url;
+            debugUrl.innerText = `來源日期：${date} (處理中...)`;
+            status.innerText = "⏳ 正在處理圖片...";
+
+            try {
+                const processedData = await processImage(url);
+
+                // 清理舊的圖片快取，避免佔用過多 localStorage
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith('bi_img_') && !key.includes(date)) {
+                        localStorage.removeItem(key);
+                    }
+                }
+
+                localStorage.setItem(cacheKey, processedData);
+                displayImg.src = processedData;
+                status.innerText = fallback ? `💡 顯示上週存檔 (${date})` : `✅ 數據已更新 (${date})`;
+                status.className = fallback ? "text-[10px] font-mono italic mt-2 text-amber-500" : "text-[10px] font-mono italic mt-2 text-emerald-500";
+            } catch (e) {
+                console.error("BI 圖片處理錯誤:", e);
+                if (!fallback) {
+                    await loadBIImg(true);
+                } else {
+                    status.innerText = "❌ 圖片處理失敗 (可能是 CORS 限制)";
+                    status.className = "text-[10px] font-mono italic mt-2 text-rose-500";
+                    // 即使處理失敗，也至少顯示原圖（如果能顯示的話）
+                    displayImg.src = url;
+                }
+            }
         }
 
         function changeBISuffix(btn, s, t) {

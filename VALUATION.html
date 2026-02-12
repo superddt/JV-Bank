@@ -903,11 +903,26 @@
             try {
                 const res = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_WEEKLY_ADJUSTED&symbol=${ticker}&apikey=${key}`);
                 const json = await res.json();
-                if (json["Weekly Time Series"]) {
-                    const series = json["Weekly Time Series"];
-                    btStockData = Object.keys(series).map(d => ({ date: new Date(d), price: parseFloat(series[d]["4. close"]) })).sort((a, b) => a.date - b.date);
+
+                // Alpha Vantage might return "Note" for rate limits or "Information"
+                if (json["Note"] || json["Information"]) {
+                    console.warn("Alpha Vantage API Note:", json["Note"] || json["Information"]);
+                    setGlobalStatus("API 頻率受限或訊息: " + (json["Note"] || json["Information"]), "wait");
+                }
+
+                const seriesKey = "Weekly Adjusted Time Series";
+                if (json[seriesKey]) {
+                    const series = json[seriesKey];
+                    // Using "5. adjusted close" for better backtest accuracy with ETFs like SCHD/SCHG
+                    btStockData = Object.keys(series).map(d => ({
+                        date: new Date(d),
+                        price: parseFloat(series[d]["5. adjusted close"] || series[d]["4. close"])
+                    })).sort((a, b) => a.date - b.date);
+
                     localStorage.setItem(ck, JSON.stringify({ data: btStockData, ts: Date.now() }));
                     updateBTReadyState();
+                } else {
+                    console.error("Unexpected API response structure:", json);
                 }
             } catch (e) { console.error(e); }
         }

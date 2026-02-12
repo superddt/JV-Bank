@@ -316,6 +316,8 @@
                                 <option value="QQQ">QQQ</option>
                                 <option value="VOO">VOO</option>
                                 <option value="VT">VT</option>
+                                <option value="SCHD">SCHD</option>
+                                <option value="SCHG">SCHG</option>
                             </select>
                             <input type="password" id="bt-apiKeyInput" placeholder="API KEY"
                                 class="w-1/2 bg-slate-900 text-white border border-slate-700 rounded-lg px-2 py-2 text-xs outline-none"
@@ -899,7 +901,7 @@
             }
             if (!key) return;
             try {
-                const res = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_WEEKLY&symbol=${ticker}&apikey=${key}`);
+                const res = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_WEEKLY_ADJUSTED&symbol=${ticker}&apikey=${key}`);
                 const json = await res.json();
                 if (json["Weekly Time Series"]) {
                     const series = json["Weekly Time Series"];

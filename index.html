@@ -554,9 +554,6 @@
                     usersData[doc.id] = { id: doc.id, ...doc.data() };
                 });
 
-                // Trigger auto allowance check whenever users load/change (debounce ideally, but simple here)
-                checkAutoAllowance();
-
                 // Trigger auto interest check whenever users load/change (debounce ideally, but simple here)
                 checkAutoInterest();
 
@@ -601,9 +598,6 @@
                 renderKidData(kId);
             }
         }
-
-        // Expose for debugging / manual trigger
-        window.checkAutoAllowance = checkAutoAllowance;
 
         // ============================================
         // 4. ADMIN LOGIC

@@ -755,7 +755,25 @@
                 // Determine start date for catch-up
                 let lastDate;
                 if (user.lastAllowancePeriod) {
-                    lastDate = new Date(user.lastAllowancePeriod);
+                    // Handle both date strings ("2026-01-28") and legacy "15th"/"28th" format
+                    const periodStr = String(user.lastAllowancePeriod);
+                    if (periodStr.includes('-')) {
+                        // Standard date format "YYYY-MM-DD"
+                        lastDate = new Date(periodStr);
+                    } else {
+                        // Legacy format "15th" or "28th" - need to determine the actual date
+                        // The "28th" format indicates the day of month, but we need to infer the month/year
+                        // Since lastAllowanceDate exists, use it as reference
+                        if (user.lastAllowanceDate) {
+                            const d = (user.lastAllowanceDate.toDate) ? user.lastAllowanceDate.toDate() : new Date(user.lastAllowanceDate);
+                            lastDate = new Date(d);
+                        } else {
+                            // Fallback: assume current month
+                            const today = new Date();
+                            const day = periodStr === '28th' ? 28 : 15;
+                            lastDate = new Date(today.getFullYear(), today.getMonth(), day);
+                        }
+                    }
                 } else {
                     // If no record, start from yesterday to avoid massive retrospective payments
                     lastDate = new Date(now);
@@ -768,6 +786,7 @@
                 let loopDate = new Date(lastDate);
                 loopDate.setDate(loopDate.getDate() + 1);
 
+                // Process dates until we reach today
                 while (loopDate <= now) {
                     const day = loopDate.getDate();
                     if (day === 15 || day === 28) {
@@ -776,7 +795,10 @@
                     loopDate.setDate(loopDate.getDate() + 1);
                 }
 
-                if (markers.length === 0) continue;
+                if (markers.length === 0) {
+                    console.log(`No markers to process for ${user.name}`);
+                    continue;
+                }
 
                 console.log(`Catching up ${markers.length} Allowance(s) for ${user.name}`);
 
@@ -790,7 +812,22 @@
 
                             // Double check inside transaction to avoid race conditions
                             // (though markers are processed sequentially here)
-                            if (currentData.lastAllowancePeriod >= periodId) return;
+                            // Handle both date strings and legacy "15th"/"28th" format
+                            const storedPeriod = String(currentData.lastAllowancePeriod || '');
+                            let isProcessed = false;
+                            if (storedPeriod.includes('-')) {
+                                // Standard date format "YYYY-MM-DD"
+                                isProcessed = storedPeriod >= periodId;
+                            } else if (storedPeriod === '28th') {
+                                // If last was 28th, then 15th of this month is NOT processed, but 28th IS processed
+                                const markerDay = new Date(periodId).getDate();
+                                isProcessed = markerDay === 28;
+                            } else if (storedPeriod === '15th') {
+                                // If last was 15th, then 15th IS processed, but 28th is NOT
+                                const markerDay = new Date(periodId).getDate();
+                                isProcessed = markerDay === 15;
+                            }
+                            if (isProcessed) return;
 
                             const amount = currentData.halfMonthAllowance;
                             const newBalance = (currentData.balance || 0) + amount;

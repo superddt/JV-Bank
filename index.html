@@ -577,6 +577,9 @@
                     }
                     txsData.push({ id: doc.id, ...data, date: dateStr });
                 });
+                // Explicitly sort by date descending to ensure correct order
+                // This handles cases where mixed date formats (toISOString vs Timestamp) might cause sorting issues
+                txsData.sort((a, b) => new Date(b.date) - new Date(a.date));
                 refreshCurrentView();
             });
         }

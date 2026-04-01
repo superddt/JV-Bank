@@ -121,14 +121,14 @@
                         <!-- Chenn Allowance -->
                         <div class="flex flex-col items-center">
                             <span class="text-[10px] text-text-muted-dark uppercase font-bold">Chenn ($)</span>
-                            <input type="number" id="chenn-allowance-input" step="0.01"
+                            <input type="number" id="chenn-allowance-input" step="1"
                                 class="w-16 bg-slate-900 border border-border-dark rounded px-2 py-1 text-xs font-bold text-accent focus:ring-accent focus:border-accent text-center">
                         </div>
                         <div class="w-px h-8 bg-border-dark mx-1"></div>
                         <!-- Honn Allowance -->
                         <div class="flex flex-col items-center">
                             <span class="text-[10px] text-text-muted-dark uppercase font-bold">Honn ($)</span>
-                            <input type="number" id="honn-allowance-input" step="0.01"
+                            <input type="number" id="honn-allowance-input" step="1"
                                 class="w-16 bg-slate-900 border border-border-dark rounded px-2 py-1 text-xs font-bold text-accent focus:ring-accent focus:border-accent text-center">
                         </div>
                         <div class="w-px h-8 bg-border-dark mx-1"></div>
@@ -1176,11 +1176,11 @@
 
                 return `
                     <div ${clickAttr} class="px-6 py-4 flex items-center justify-between ${hoverClass} transition-colors border-b border-card-border last:border-0 group">
-                        <div class="flex items-center gap-4">
-                            <div class="w-10 h-10 rounded-xl bg-slate-800/50 flex items-center justify-center text-secondary group-hover:bg-slate-700 transition-colors">
+                        <div class="flex items-start gap-4">
+                            <div class="w-10 h-10 rounded-xl bg-slate-800/50 flex items-center justify-center text-secondary group-hover:bg-slate-700 transition-colors shrink-0">
                                 <span class="material-symbols-outlined text-lg">${icon}</span>
                             </div>
-                            <div>
+                            <div class="pt-0.5">
                                 <p class="font-semibold text-white text-sm">${tx.description}</p>
                                 <p class="text-[11px] text-secondary capitalize">${user.name} • ${formatDate(tx.date)}</p>
                             </div>

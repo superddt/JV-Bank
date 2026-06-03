@@ -121,6 +121,8 @@
                     class="nav-btn px-6 py-2 rounded-xl text-sm font-bold whitespace-nowrap">BI 指數 (Dashboard)</button>
                 <button onclick="switchView('backtest-pro')" id="nav-bt"
                     class="nav-btn px-6 py-2 rounded-xl text-sm font-bold whitespace-nowrap">策略回測 (Backtest)</button>
+                <button onclick="switchView('etf-strategy')" id="nav-et"
+                    class="nav-btn px-6 py-2 rounded-xl text-sm font-bold whitespace-nowrap">ETF 策略 (ETF Strategy)</button>
             </nav>
 
             <div class="flex gap-4 items-center whitespace-nowrap">
@@ -421,6 +423,117 @@
                     </div>
                 </div>
             </section>
+
+            <!-- 4. ETF Strategy View (strategy.html + Finnhub API) -->
+            <section id="view-etf-strategy" class="view-content hidden animate-in fade-in duration-500">
+                <!-- Row 1: API 控制區 -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg md:col-span-2">
+                        <label class="block text-[10px] text-slate-500 mb-2 uppercase font-bold">ETF 代號 (Ticker)</label>
+                        <div class="flex gap-2">
+                            <select id="et-tickerSelect" onchange="handleETFTickerChange()"
+                                class="w-1/2 bg-slate-900 text-white border border-slate-700 rounded-lg px-2 py-2 text-xs outline-none">
+                                <option value="VOO">VOO</option>
+                                <option value="VT">VT</option>
+                            </select>
+                            <input type="password" id="et-apiKeyInput" placeholder="Finnhub API KEY"
+                                class="w-1/2 bg-slate-900 text-white border border-slate-700 rounded-lg px-2 py-2 text-xs outline-none"
+                                onchange="saveETFApiKey()">
+                        </div>
+                        <button onclick="fetchETFData()" id="et-fetchBtn"
+                            class="mt-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white w-full py-2 rounded-xl text-sm font-bold shadow-lg transition">
+                            🔄 抓取 52W 高點
+                        </button>
+                    </div>
+                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
+                        <label class="block text-[10px] text-slate-500 mb-2 uppercase font-bold">52週高點 (52W High)</label>
+                        <div id="et-52wHighDisplay" class="text-3xl font-mono font-bold text-amber-400">--</div>
+                        <div id="et-52wDesc" class="text-[10px] text-slate-500 mt-2">自動填入最高點價位</div>
+                    </div>
+                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
+                        <label class="block text-[10px] text-slate-500 mb-2 uppercase font-bold">總投資預算 (Budget)</label>
+                        <input type="number" id="et-budget" value="6000000"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-xl font-mono text-emerald-400 outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <!-- Row 2: 策略參數區 -->
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
+                        <label class="block text-[10px] text-slate-500 mb-2 uppercase font-bold">最高點價位 (High Price)</label>
+                        <input type="number" id="et-highPrice" value="640" step="0.1"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-xl font-mono text-amber-400 outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
+                        <label class="block text-[10px] text-slate-500 mb-2 uppercase font-bold">開始下跌 %</label>
+                        <input type="number" id="et-startDrop" value="-6" step="0.1"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-xl font-mono text-cyan-400 outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
+                        <label class="block text-[10px] text-slate-500 mb-2 uppercase font-bold">目標總下跌 %</label>
+                        <input type="number" id="et-endDrop" value="-30" step="0.1"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-xl font-mono text-rose-400 outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
+                        <label class="block text-[10px] text-slate-500 mb-2 uppercase font-bold">投資總次數 (Steps)</label>
+                        <input type="number" id="et-steps" value="13"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-xl font-mono text-indigo-400 outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
+                        <label class="block text-[10px] text-slate-500 mb-2 uppercase font-bold">每次加倍倍率</label>
+                        <input type="number" id="et-multiplier" value="1.4" step="0.05"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-xl font-mono text-purple-400 outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div class="flex justify-center mb-8">
+                    <button onclick="etCalculateAndSave()"
+                        class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-12 py-4 rounded-2xl text-lg font-bold shadow-xl transition transform hover:-translate-y-1">
+                        🚀 計算並模擬心理壓力
+                    </button>
+                </div>
+
+                <div id="et-resultArea" class="hidden space-y-8 animate-in fade-in duration-700">
+                    <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-xl">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+                            <div class="bg-slate-900/50 p-6 rounded-2xl">
+                                <div class="text-slate-500 text-[10px] uppercase tracking-widest mb-2">平均成本</div>
+                                <div id="et-avgCost" class="text-4xl font-black text-emerald-400 font-mono">$0</div>
+                            </div>
+                            <div class="bg-slate-900/50 p-6 rounded-2xl">
+                                <div class="text-slate-500 text-[10px] uppercase tracking-widest mb-2">最終總投入</div>
+                                <div id="et-totalInvested" class="text-4xl font-black text-white font-mono">$0</div>
+                            </div>
+                            <div class="bg-slate-800 p-6 rounded-2xl border border-rose-500/30">
+                                <div class="text-rose-400 text-[10px] uppercase tracking-widest mb-2">最大心理虧損</div>
+                                <div id="et-maxLoss" class="text-4xl font-black text-rose-500 font-mono">$0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-800 rounded-3xl border border-slate-700 shadow-xl overflow-hidden">
+                        <div class="p-4 border-b border-slate-700">
+                            <h4 class="text-sm font-bold text-slate-300 uppercase">投資策略明細</h4>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full data-table">
+                                <thead class="bg-slate-800">
+                                    <tr>
+                                        <th>階段</th>
+                                        <th>跌幅</th>
+                                        <th>成交價</th>
+                                        <th>當次股數</th>
+                                        <th>當次投入</th>
+                                        <th>累計投入</th>
+                                        <th style="color: #f43f5e;">累計帳面虧損</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="et-tableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -437,7 +550,7 @@
             document.getElementById('view-' + viewId).classList.remove('hidden');
 
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('nav-' + (viewId === 'market-pulse' ? 'mp' : (viewId === 'bi-dashboard' ? 'bi' : 'bt'))).classList.add('active');
+            document.getElementById('nav-' + (viewId === 'market-pulse' ? 'mp' : (viewId === 'bi-dashboard' ? 'bi' : (viewId === 'etf-strategy' ? 'et' : 'bt')))).classList.add('active');
 
             if (viewId === 'market-pulse' && mpMode === 'calc') {
                 calculateMPInvestment();
@@ -462,6 +575,8 @@
 
             loadApiKey();
             loadBTPrefs();
+            loadETFApiKey();
+            etLoadParams();
 
             // 優先嘗試加載靜態 JSON (GH Action 同步結果)
             let loadedFromRepo = false;
@@ -1102,6 +1217,192 @@
                 tr.innerHTML = `<td class="text-slate-500">${rA.date.toISOString().split('T')[0]}</td><td>${rA.price.toFixed(2)}</td><td>${rA.cape.toFixed(1)}</td><td>${rA.zScore.toFixed(2)}</td><td class="font-bold ${(rA.heat > 0.6 ? 'text-rose-400' : (rA.heat < 0.4 ? 'text-emerald-400' : 'text-amber-400'))}">${(rA.heat * 100).toFixed(0)}%</td><td class="text-indigo-300 font-mono">$${Math.round(rA.budget)}</td><td class="${rA.bought > 0 ? 'text-indigo-400 font-bold' : 'text-slate-600'}">${rA.bought}</td><td class="${rB.bought > 0 ? 'text-emerald-400 font-bold' : 'text-slate-600'}">${rB.bought}</td>`;
                 tbody.appendChild(tr);
             }
+        }
+
+        // --- 6. ETF Strategy 模組 (et-*) ---
+        // Finnhub API 整合與壓力測試試算器
+
+        const FINNHUB_BASE = 'https://finnhub.io/api/v1';
+
+        function saveETFApiKey() {
+            localStorage.setItem('finnhub_api_key', document.getElementById('et-apiKeyInput').value);
+        }
+
+        function loadETFApiKey() {
+            const k = localStorage.getItem('finnhub_api_key');
+            if (k) document.getElementById('et-apiKeyInput').value = k;
+        }
+
+        function handleETFTickerChange() {
+            btStockData = [];
+            updateBTReadyState();
+            // Optional: auto-fetch on ticker change if API key is present
+            const key = document.getElementById('et-apiKeyInput').value;
+            if (key) fetchETFData();
+        }
+
+        async function fetchETFData() {
+            const ticker = document.getElementById('et-tickerSelect').value;
+            const key = document.getElementById('et-apiKeyInput').value;
+
+            if (!key) {
+                setGlobalStatus("請先輸入 Finnhub API Key", "err");
+                return;
+            }
+
+            setGlobalStatus("正在抓取 Finnhub 數據...", "wait");
+
+            try {
+                // Fetch quote for basic info
+                const quoteRes = await fetch(`${FINNHUB_BASE}/quote?symbol=${ticker}&token=${key}`);
+                const quoteData = await quoteRes.json();
+
+                if (quoteData.error) {
+                    setGlobalStatus("API 錯誤: " + quoteData.error, "err");
+                    return;
+                }
+
+                // Fetch basic financials for 52-week high
+                const metricRes = await fetch(`${FINNHUB_BASE}/stock/metric?symbol=${ticker}&metric=all&token=${key}`);
+                const metricData = await metricRes.json();
+
+                let week52High = null;
+                if (metricData.metric && metricData.metric['52WeekHigh']) {
+                    week52High = parseFloat(metricData.metric['52WeekHigh']);
+                }
+                // Fallback: if 52WeekHigh is not available from /stock/metric, try to calculate from quote
+                if (!week52High && quoteData.h) {
+                    week52High = parseFloat(quoteData.h);
+                }
+
+                if (!week52High) {
+                    setGlobalStatus("無法取得 52週高點", "err");
+                    return;
+                }
+
+                // Auto-fill the high price input
+                const highPriceInput = document.getElementById('et-highPrice');
+                highPriceInput.value = week52High.toFixed(2);
+                highPriceInput.classList.add('animate-pulse');
+                setTimeout(() => highPriceInput.classList.remove('animate-pulse'), 1000);
+
+                // Update display
+                document.getElementById('et-52wHighDisplay').innerText = '$' + week52High.toFixed(2);
+
+                // Cache the data
+                localStorage.setItem(`etf_data_${ticker}`, JSON.stringify({
+                    week52High: week52High,
+                    ts: Date.now()
+                }));
+
+                setGlobalStatus(`${ticker} 數據已同步`, "ready");
+
+                // Auto-trigger calculation
+                etCalculateAndSave();
+
+            } catch (e) {
+                console.error(e);
+                setGlobalStatus("抓取失敗，請檢查網路或 API Key", "err");
+            }
+        }
+
+        // --- ETF Strategy Calculator Logic (from strategy.html) ---
+
+        function etLoadParams() {
+            const saved = localStorage.getItem('etf_strategy_params');
+            if (saved) {
+                try {
+                    const p = JSON.parse(saved);
+                    if (p.highPrice !== undefined) document.getElementById('et-highPrice').value = p.highPrice;
+                    if (p.startDrop !== undefined) document.getElementById('et-startDrop').value = p.startDrop;
+                    if (p.endDrop !== undefined) document.getElementById('et-endDrop').value = p.endDrop;
+                    if (p.steps !== undefined) document.getElementById('et-steps').value = p.steps;
+                    if (p.multiplier !== undefined) document.getElementById('et-multiplier').value = p.multiplier;
+                    if (p.budget !== undefined) document.getElementById('et-budget').value = p.budget;
+                } catch (e) { console.error("Error loading ETF params", e); }
+            }
+        }
+
+        function etCalculateAndSave() {
+            const params = {
+                highPrice: document.getElementById('et-highPrice').value,
+                startDrop: document.getElementById('et-startDrop').value,
+                endDrop: document.getElementById('et-endDrop').value,
+                steps: document.getElementById('et-steps').value,
+                multiplier: document.getElementById('et-multiplier').value,
+                budget: document.getElementById('et-budget').value
+            };
+            localStorage.setItem('etf_strategy_params', JSON.stringify(params));
+            etCalculate();
+        }
+
+        function etCalculate() {
+            const highPrice = parseFloat(document.getElementById('et-highPrice').value);
+            const startDrop = Math.abs(parseFloat(document.getElementById('et-startDrop').value)) / 100;
+            const endDrop = Math.abs(parseFloat(document.getElementById('et-endDrop').value)) / 100;
+            const steps = parseInt(document.getElementById('et-steps').value);
+            const multiplier = parseFloat(document.getElementById('et-multiplier').value);
+            const budget = parseFloat(document.getElementById('et-budget').value);
+
+            if (!highPrice || !startDrop || !endDrop || !steps || !multiplier || !budget) {
+                return;
+            }
+
+            let prices = [];
+            let dropInterval = (endDrop - startDrop) / (steps - 1);
+            for (let i = 0; i < steps; i++) {
+                prices.push(highPrice * (1 - (startDrop + i * dropInterval)));
+            }
+
+            let unitTestTotal = 0;
+            let relativeShares = [];
+            for (let i = 0; i < steps; i++) {
+                let sMult = Math.pow(multiplier, i);
+                relativeShares.push(sMult);
+                unitTestTotal += prices[i] * sMult * 100;
+            }
+
+            let baseUnit = Math.floor(budget / unitTestTotal);
+            if (baseUnit < 1) baseUnit = 1;
+
+            const tbody = document.getElementById('et-tableBody');
+            tbody.innerHTML = '';
+            let cumulativeCost = 0;
+            let cumulativeShares = 0;
+            let finalMaxLoss = 0;
+            let totalInvested = 0;
+
+            for (let i = 0; i < steps; i++) {
+                let currentShares = Math.round(baseUnit * relativeShares[i]) * 100;
+                let currentCost = prices[i] * currentShares;
+                cumulativeCost += currentCost;
+                cumulativeShares += currentShares;
+                totalInvested = cumulativeCost;
+
+                // 計算帳面虧損：(目前持股 * 當前價格) - 累計投入成本
+                let currentMarketValue = cumulativeShares * prices[i];
+                let paperLoss = currentMarketValue - cumulativeCost;
+                if (paperLoss < finalMaxLoss) finalMaxLoss = paperLoss;
+
+                let tr = document.createElement('tr');
+                tr.innerHTML = `<td class="text-slate-500">${i + 1}</td>
+                <td class="text-blue-400">-${((startDrop + i * dropInterval) * 100).toFixed(1)}%</td>
+                <td class="text-amber-400">$${prices[i].toFixed(2)}</td>
+                <td>${currentShares.toLocaleString()}</td>
+                <td>$${currentCost.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                <td>$${cumulativeCost.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                <td class="font-bold ${paperLoss === 0 ? 'text-slate-500' : 'text-rose-400'}">${paperLoss === 0 ? '-' : '$' + paperLoss.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>`;
+                tbody.appendChild(tr);
+            }
+
+            // Show results
+            const resultArea = document.getElementById('et-resultArea');
+            resultArea.classList.remove('hidden');
+            resultArea.classList.add('block');
+
+            document.getElementById('et-avgCost').innerText = '$' + (cumulativeCost / cumulativeShares).toFixed(2);
+            document.getElementById('et-totalInvested').innerText = '$' + totalInvested.toLocaleString(undefined, {maximumFractionDigits: 0});
+            document.getElementById('et-maxLoss').innerText = '$' + finalMaxLoss.toLocaleString(undefined, {maximumFractionDigits: 0});
         }
 
         // --- 6. 偏好記憶 ---

@@ -113,16 +113,27 @@
                     Integrated Suite</p>
             </div>
 
-            <nav class="flex bg-slate-800 p-1.5 rounded-2xl border border-slate-700 shadow-xl overflow-x-auto">
+            <nav class="flex bg-slate-800 p-1.5 rounded-2xl border border-slate-700 shadow-xl">
                 <button onclick="switchView('market-pulse')" id="nav-mp"
-                    class="nav-btn px-6 py-2 rounded-xl text-sm font-bold active whitespace-nowrap">市場趨勢
-                    (Pulse)</button>
+                    class="nav-btn px-4 py-2 rounded-xl font-bold active text-center">
+                    <span class="block text-sm leading-tight">市場趨勢</span>
+                    <span class="block text-[9px] font-normal opacity-60 leading-tight">Pulse</span>
+                </button>
                 <button onclick="switchView('bi-dashboard')" id="nav-bi"
-                    class="nav-btn px-6 py-2 rounded-xl text-sm font-bold whitespace-nowrap">BI 指數 (Dashboard)</button>
+                    class="nav-btn px-4 py-2 rounded-xl font-bold text-center">
+                    <span class="block text-sm leading-tight">BI 指數</span>
+                    <span class="block text-[9px] font-normal opacity-60 leading-tight">Dashboard</span>
+                </button>
                 <button onclick="switchView('backtest-pro')" id="nav-bt"
-                    class="nav-btn px-6 py-2 rounded-xl text-sm font-bold whitespace-nowrap">策略回測 (Backtest)</button>
+                    class="nav-btn px-4 py-2 rounded-xl font-bold text-center">
+                    <span class="block text-sm leading-tight">策略回測</span>
+                    <span class="block text-[9px] font-normal opacity-60 leading-tight">Backtest</span>
+                </button>
                 <button onclick="switchView('etf-strategy')" id="nav-et"
-                    class="nav-btn px-6 py-2 rounded-xl text-sm font-bold whitespace-nowrap">ETF 策略 (ETF Strategy)</button>
+                    class="nav-btn px-4 py-2 rounded-xl font-bold text-center">
+                    <span class="block text-sm leading-tight">ETF 策略</span>
+                    <span class="block text-[9px] font-normal opacity-60 leading-tight">ETF Strategy</span>
+                </button>
             </nav>
 
             <div class="flex gap-4 items-center whitespace-nowrap">
@@ -323,7 +334,7 @@
                             </select>
                             <input type="password" id="bt-apiKeyInput" placeholder="API KEY"
                                 class="w-1/2 bg-slate-900 text-white border border-slate-700 rounded-lg px-2 py-2 text-xs outline-none"
-                                onchange="saveBTApiKey()">
+                                oninput="saveBTApiKey()">
                         </div>
                         <button onclick="runBacktest()" id="bt-runBtn"
                             class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white w-full py-3 rounded-xl text-lg font-bold shadow-lg transition opacity-50 cursor-not-allowed"
@@ -438,7 +449,7 @@
                             </select>
                             <input type="password" id="et-apiKeyInput" placeholder="Finnhub API KEY"
                                 class="w-1/2 bg-slate-900 text-white border border-slate-700 rounded-lg px-2 py-2 text-xs outline-none"
-                                onchange="saveETFApiKey()">
+                                oninput="saveETFApiKey()">
                         </div>
                         <button onclick="fetchETFData()" id="et-fetchBtn"
                             class="mt-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white w-full py-2 rounded-xl text-sm font-bold shadow-lg transition">
@@ -577,6 +588,13 @@
             loadBTPrefs();
             loadETFApiKey();
             etLoadParams();
+
+            ['et-highPrice', 'et-startDrop', 'et-endDrop', 'et-steps', 'et-multiplier', 'et-budget'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', () => etCalculateAndSave());
+            });
+            const etTicker = document.getElementById('et-tickerSelect');
+            if (etTicker) etTicker.addEventListener('change', () => etCalculateAndSave());
 
             // 優先嘗試加載靜態 JSON (GH Action 同步結果)
             let loadedFromRepo = false;
@@ -1319,6 +1337,7 @@
                     if (p.steps !== undefined) document.getElementById('et-steps').value = p.steps;
                     if (p.multiplier !== undefined) document.getElementById('et-multiplier').value = p.multiplier;
                     if (p.budget !== undefined) document.getElementById('et-budget').value = p.budget;
+                    if (p.ticker !== undefined) document.getElementById('et-tickerSelect').value = p.ticker;
                 } catch (e) { console.error("Error loading ETF params", e); }
             }
         }
@@ -1330,7 +1349,8 @@
                 endDrop: document.getElementById('et-endDrop').value,
                 steps: document.getElementById('et-steps').value,
                 multiplier: document.getElementById('et-multiplier').value,
-                budget: document.getElementById('et-budget').value
+                budget: document.getElementById('et-budget').value,
+                ticker: document.getElementById('et-tickerSelect').value
             };
             localStorage.setItem('etf_strategy_params', JSON.stringify(params));
             etCalculate();
@@ -1408,7 +1428,7 @@
         // --- 6. 偏好記憶 ---
         function saveBTApiKey() { localStorage.setItem('av_api_key', document.getElementById('bt-apiKeyInput').value); }
         function loadApiKey() { const k = localStorage.getItem('av_api_key'); if (k) document.getElementById('bt-apiKeyInput').value = k; }
-        function loadBTPrefs() { ['baseBudget', 'investmentYears', 'lookbackYears', 'leverage'].forEach(id => { const el = document.getElementById('bt-' + id); if (el) { const v = localStorage.getItem('bt_pref_' + id); if (v) el.value = v; el.addEventListener('change', (e) => localStorage.setItem('bt_pref_' + id, e.target.value)); } }); }
+        function loadBTPrefs() { ['baseBudget', 'investmentYears', 'lookbackYears', 'leverage'].forEach(id => { const el = document.getElementById('bt-' + id); if (el) { const v = localStorage.getItem('bt_pref_' + id); if (v) el.value = v; el.addEventListener('input', (e) => localStorage.setItem('bt_pref_' + id, e.target.value)); } }); const tk = document.getElementById('bt-tickerSelect'); if (tk) { const sv = localStorage.getItem('bt_pref_ticker'); if (sv) tk.value = sv; tk.addEventListener('change', (e) => localStorage.setItem('bt_pref_ticker', e.target.value)); } }
 
         window.onload = init;
     </script>

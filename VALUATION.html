@@ -578,26 +578,28 @@
 
         async function init() {
             // Load MP Strategy Params
-            const savedMPParams = localStorage.getItem('mp_calc_params');
-            if (savedMPParams) {
-                try {
+            try {
+                const savedMPParams = localStorage.getItem('mp_calc_params');
+                if (savedMPParams) {
                     const p = JSON.parse(savedMPParams);
                     if (p.amount) document.getElementById('mp-calcAmount').value = p.amount;
                     if (p.period) document.getElementById('mp-calcPeriod').value = p.period;
                     if (p.leverage) document.getElementById('mp-calcLeverage').value = p.leverage;
-                } catch (e) { console.error("Error loading MP params", e); }
-            }
+                }
+            } catch (e) { console.error("Error loading MP params", e); }
 
-            loadApiKey();
-            loadBTPrefs();
-            loadETFApiKey();
-            etLoadParams();
+            try { loadApiKey(); } catch (e) { console.error("Error loading API key", e); }
+            try { loadBTPrefs(); } catch (e) { console.error("Error loading BT prefs", e); }
+            try { loadETFApiKey(); } catch (e) { console.error("Error loading ETF API key", e); }
+            try { etLoadParams(); } catch (e) { console.error("Error loading ETF params", e); }
 
-            const savedPrice = localStorage.getItem('etf_current_price');
-            if (savedPrice) {
-                etCurrentPrice = parseFloat(savedPrice);
-                document.getElementById('et-currentPriceDisplay').innerText = '$' + etCurrentPrice.toFixed(2);
-            }
+            try {
+                const savedPrice = localStorage.getItem('etf_current_price');
+                if (savedPrice) {
+                    etCurrentPrice = parseFloat(savedPrice);
+                    document.getElementById('et-currentPriceDisplay').innerText = '$' + etCurrentPrice.toFixed(2);
+                }
+            } catch (e) { console.error("Error loading ETF current price", e); }
 
             ['et-highPrice', 'et-startDrop', 'et-endDrop', 'et-steps', 'et-multiplier', 'et-budget'].forEach(id => {
                 const el = document.getElementById(id);
@@ -688,7 +690,11 @@
                     if (repoRes.ok) {
                         const repoData = await repoRes.json();
                         rehydrateGlobalData(repoData);
-                        localStorage.setItem(CACHE_KEY, JSON.stringify(globalData));
+                        try {
+                            localStorage.setItem(CACHE_KEY, JSON.stringify(globalData));
+                        } catch (e) {
+                            console.warn("無法寫入 global_market 快取:", e);
+                        }
                         renderMP(globalData);
                         updateBTReadyState();
                         setGlobalStatus(`同步成功: 官方數據 (${new Date(globalData.ts).toLocaleDateString()})`, "ready");
@@ -714,7 +720,11 @@
                         gdp: gdpRaw.map(d => ({ date: new Date(d.date), val: d.val * 1000 }))
                     }
                 };
-                localStorage.setItem(CACHE_KEY, JSON.stringify(globalData));
+                try {
+                    localStorage.setItem(CACHE_KEY, JSON.stringify(globalData));
+                } catch (e) {
+                    console.warn("無法寫入 global_market 快取:", e);
+                }
                 renderMP(globalData);
                 updateBTReadyState();
                 setGlobalStatus(`同步成功: 實時抓取 (${new Date().toLocaleDateString()})`, "ready");
@@ -840,7 +850,11 @@
             const lev = parseFloat(document.getElementById('mp-calcLeverage').value) || 1;
 
             // Save MP Strategy Params
-            localStorage.setItem('mp_calc_params', JSON.stringify({ amount: amt, period: yrs, leverage: lev }));
+            try {
+                localStorage.setItem('mp_calc_params', JSON.stringify({ amount: amt, period: yrs, leverage: lev }));
+            } catch (e) {
+                console.warn("儲存 MP 資金分配參數失敗:", e);
+            }
 
             const curDate = new Date();
             const startWindow = new Date(curDate.getTime() - yrs * 365 * 24 * 60 * 60 * 1000);
@@ -956,25 +970,12 @@
 
         async function loadBIImg(fallback = false) {
             const date = fallback ? biSecondary : biPrimary;
-            const cacheKey = `bi_img_${date}_${biSuffix}`;
-            const cachedData = localStorage.getItem(cacheKey);
 
             const displayImg = document.getElementById('bi-displayImg');
             const status = document.getElementById('bi-dateStatus');
             const debugUrl = document.getElementById('bi-urlDebug');
             const linkNewTab = document.getElementById('bi-linkNewTab');
 
-            // 1. 檢查快取
-            if (cachedData) {
-                displayImg.src = cachedData;
-                debugUrl.innerText = `來源日期：${date} (從快取載入)`;
-                status.innerText = fallback ? `💡 顯示上週存檔 (${date})` : `✅ 數據已更新 (${date})`;
-                status.className = fallback ? "text-[10px] font-mono italic mt-2 text-amber-500" : "text-[10px] font-mono italic mt-2 text-emerald-500";
-                linkNewTab.href = `https://cmv.imgix.net/model-charts/${date}-${biSuffix}.png?w=1080&fm=png&q=30`;
-                return;
-            }
-
-            // 2. 正常載入與處理
             const url = `https://cmv.imgix.net/model-charts/${date}-${biSuffix}.png?w=1080&fm=png&q=30`;
             linkNewTab.href = url;
             debugUrl.innerText = `來源日期：${date} (處理中...)`;
@@ -982,16 +983,6 @@
 
             try {
                 const processedData = await processImage(url);
-
-                // 清理舊的圖片快取，避免佔用過多 localStorage
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key && key.startsWith('bi_img_') && !key.includes(date)) {
-                        localStorage.removeItem(key);
-                    }
-                }
-
-                localStorage.setItem(cacheKey, processedData);
                 displayImg.src = processedData;
                 status.innerText = fallback ? `💡 顯示上週存檔 (${date})` : `✅ 數據已更新 (${date})`;
                 status.className = fallback ? "text-[10px] font-mono italic mt-2 text-amber-500" : "text-[10px] font-mono italic mt-2 text-emerald-500";
@@ -1002,7 +993,6 @@
                 } else {
                     status.innerText = "❌ 圖片處理失敗 (可能是 CORS 限制)";
                     status.className = "text-[10px] font-mono italic mt-2 text-rose-500";
-                    // 即使處理失敗，也至少顯示原圖（如果能顯示的話）
                     displayImg.src = url;
                 }
             }
@@ -1062,7 +1052,11 @@
                         price: parseFloat(series[d]["5. adjusted close"] || series[d]["4. close"])
                     })).sort((a, b) => a.date - b.date);
 
-                    localStorage.setItem(ck, JSON.stringify({ data: btStockData, ts: Date.now() }));
+                    try {
+                        localStorage.setItem(ck, JSON.stringify({ data: btStockData, ts: Date.now() }));
+                    } catch (e) {
+                        console.warn("快取回測個股數據失敗:", e);
+                    }
                     updateBTReadyState();
                 } else {
                     console.error("Unexpected API response structure:", json);
@@ -1254,7 +1248,11 @@
         let etCurrentPrice = null;
 
         function saveETFApiKey() {
-            localStorage.setItem('finnhub_api_key', document.getElementById('et-apiKeyInput').value);
+            try {
+                localStorage.setItem('finnhub_api_key', document.getElementById('et-apiKeyInput').value);
+            } catch (e) {
+                console.warn("儲存 Finnhub API Key 失敗:", e);
+            }
         }
 
         function loadETFApiKey() {
@@ -1319,16 +1317,24 @@
                 document.getElementById('et-52wHighDisplay').innerText = '$' + week52High.toFixed(2);
 
                 // Cache the data
-                localStorage.setItem(`etf_data_${ticker}`, JSON.stringify({
-                    week52High: week52High,
-                    currentPrice: quoteData.c || null,
-                    ts: Date.now()
-                }));
+                try {
+                    localStorage.setItem(`etf_data_${ticker}`, JSON.stringify({
+                        week52High: week52High,
+                        currentPrice: quoteData.c || null,
+                        ts: Date.now()
+                    }));
+                } catch (e) {
+                    console.warn("快取 ETF 數據失敗:", e);
+                }
 
                 // Save and display current price
                 if (quoteData.c) {
                     etCurrentPrice = quoteData.c;
-                    localStorage.setItem('etf_current_price', quoteData.c);
+                    try {
+                        localStorage.setItem('etf_current_price', quoteData.c);
+                    } catch (e) {
+                        console.warn("快取 ETF 當前價格失敗:", e);
+                    }
                     document.getElementById('et-currentPriceDisplay').innerText = '$' + quoteData.c.toFixed(2);
                 }
 
@@ -1371,7 +1377,11 @@
                 budget: document.getElementById('et-budget').value,
                 ticker: document.getElementById('et-tickerSelect').value
             };
-            localStorage.setItem('etf_strategy_params', JSON.stringify(params));
+            try {
+                localStorage.setItem('etf_strategy_params', JSON.stringify(params));
+            } catch (e) {
+                console.warn("儲存 ETF 策略參數失敗:", e);
+            }
             etCalculate();
         }
 
@@ -1449,9 +1459,42 @@
         }
 
         // --- 6. 偏好記憶 ---
-        function saveBTApiKey() { localStorage.setItem('av_api_key', document.getElementById('bt-apiKeyInput').value); }
+        function saveBTApiKey() {
+            try {
+                localStorage.setItem('av_api_key', document.getElementById('bt-apiKeyInput').value);
+            } catch (e) {
+                console.warn("儲存 av_api_key 失敗:", e);
+            }
+        }
         function loadApiKey() { const k = localStorage.getItem('av_api_key'); if (k) document.getElementById('bt-apiKeyInput').value = k; }
-        function loadBTPrefs() { ['baseBudget', 'investmentYears', 'lookbackYears', 'leverage'].forEach(id => { const el = document.getElementById('bt-' + id); if (el) { const v = localStorage.getItem('bt_pref_' + id); if (v) el.value = v; el.addEventListener('input', (e) => localStorage.setItem('bt_pref_' + id, e.target.value)); } }); const tk = document.getElementById('bt-tickerSelect'); if (tk) { const sv = localStorage.getItem('bt_pref_ticker'); if (sv) tk.value = sv; tk.addEventListener('change', (e) => localStorage.setItem('bt_pref_ticker', e.target.value)); } }
+        function loadBTPrefs() {
+            ['baseBudget', 'investmentYears', 'lookbackYears', 'leverage'].forEach(id => {
+                const el = document.getElementById('bt-' + id);
+                if (el) {
+                    const v = localStorage.getItem('bt_pref_' + id);
+                    if (v) el.value = v;
+                    el.addEventListener('input', (e) => {
+                        try {
+                            localStorage.setItem('bt_pref_' + id, e.target.value);
+                        } catch (err) {
+                            console.warn("儲存 bt_pref_" + id + " 失敗:", err);
+                        }
+                    });
+                }
+            });
+            const tk = document.getElementById('bt-tickerSelect');
+            if (tk) {
+                const sv = localStorage.getItem('bt_pref_ticker');
+                if (sv) tk.value = sv;
+                tk.addEventListener('change', (e) => {
+                    try {
+                        localStorage.setItem('bt_pref_ticker', e.target.value);
+                    } catch (err) {
+                        console.warn("儲存 bt_pref_ticker 失敗:", err);
+                    }
+                });
+            }
+        }
 
         window.onload = init;
     </script>

@@ -355,7 +355,7 @@
                                     <p class="text-[10px] text-slate-500 mt-1">動態調整每週投入金額</p>
                                 </div>
                                 <div class="text-right">
-                                    <div class="text-3xl font-black text-white" id="bt-resA_return">--%</div>
+                                    <div class="text-3xl font-black text-white font-mono" id="bt-resA_return">--%</div>
                                     <div class="text-[10px] text-slate-400 uppercase">總報酬率</div>
                                 </div>
                             </div>
@@ -379,7 +379,7 @@
                                     <p class="text-[10px] text-slate-500 mt-1">平均本金 (DCA)</p>
                                 </div>
                                 <div class="text-right">
-                                    <div class="text-3xl font-black text-white" id="bt-resB_return">--%</div>
+                                    <div class="text-3xl font-black text-white font-mono" id="bt-resB_return">--%</div>
                                     <div class="text-[10px] text-slate-400 uppercase">總報酬率</div>
                                 </div>
                             </div>
@@ -459,6 +459,10 @@
                     <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
                         <label class="block text-[10px] text-slate-500 mb-2 uppercase font-bold">52週高點 (52W High)</label>
                         <div id="et-52wHighDisplay" class="text-3xl font-mono font-bold text-amber-400">--</div>
+                        <div class="mt-3 border-t border-slate-700 pt-3">
+                            <label class="block text-[10px] text-slate-500 mb-1 uppercase font-bold">目前價格 (Current)</label>
+                            <div id="et-currentPriceDisplay" class="text-2xl font-mono font-bold text-cyan-400">--</div>
+                        </div>
                         <div id="et-52wDesc" class="text-[10px] text-slate-500 mt-2">自動填入最高點價位</div>
                     </div>
                     <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-lg">
@@ -588,6 +592,12 @@
             loadBTPrefs();
             loadETFApiKey();
             etLoadParams();
+
+            const savedPrice = localStorage.getItem('etf_current_price');
+            if (savedPrice) {
+                etCurrentPrice = parseFloat(savedPrice);
+                document.getElementById('et-currentPriceDisplay').innerText = '$' + etCurrentPrice.toFixed(2);
+            }
 
             ['et-highPrice', 'et-startDrop', 'et-endDrop', 'et-steps', 'et-multiplier', 'et-budget'].forEach(id => {
                 const el = document.getElementById(id);
@@ -1241,6 +1251,7 @@
         // Finnhub API 整合與壓力測試試算器
 
         const FINNHUB_BASE = 'https://finnhub.io/api/v1';
+        let etCurrentPrice = null;
 
         function saveETFApiKey() {
             localStorage.setItem('finnhub_api_key', document.getElementById('et-apiKeyInput').value);
@@ -1310,8 +1321,16 @@
                 // Cache the data
                 localStorage.setItem(`etf_data_${ticker}`, JSON.stringify({
                     week52High: week52High,
+                    currentPrice: quoteData.c || null,
                     ts: Date.now()
                 }));
+
+                // Save and display current price
+                if (quoteData.c) {
+                    etCurrentPrice = quoteData.c;
+                    localStorage.setItem('etf_current_price', quoteData.c);
+                    document.getElementById('et-currentPriceDisplay').innerText = '$' + quoteData.c.toFixed(2);
+                }
 
                 setGlobalStatus(`${ticker} 數據已同步`, "ready");
 
@@ -1404,10 +1423,14 @@
                 let paperLoss = currentMarketValue - cumulativeCost;
                 if (paperLoss < finalMaxLoss) finalMaxLoss = paperLoss;
 
+                const isAboveCurrent = etCurrentPrice && prices[i] > etCurrentPrice;
+                const rowClass = isAboveCurrent ? 'bg-rose-900/30' : '';
+
                 let tr = document.createElement('tr');
+                tr.className = rowClass;
                 tr.innerHTML = `<td class="text-slate-500">${i + 1}</td>
                 <td class="text-blue-400">-${((startDrop + i * dropInterval) * 100).toFixed(1)}%</td>
-                <td class="text-amber-400">$${prices[i].toFixed(2)}</td>
+                <td class="${isAboveCurrent ? 'text-rose-400 font-bold' : 'text-amber-400'}">$${prices[i].toFixed(2)}${isAboveCurrent ? ' ⚠' : ''}</td>
                 <td>${currentShares.toLocaleString()}</td>
                 <td>$${currentCost.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
                 <td>$${cumulativeCost.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>

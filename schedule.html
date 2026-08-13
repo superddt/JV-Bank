@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>今日課表</title>
+<style>
+  :root{
+    --bg:#12151c;
+    --panel:#1a1e28;
+    --panel-line:#262b38;
+    --ink:#eef1f6;
+    --ink-dim:#8993a8;
+    --honn:#e8a33d;
+    --honn-soft:#3a3020;
+    --chenn:#3ec6c6;
+    --chenn-soft:#1c3535;
+    --now:#ff5a5a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Iowan Old Style","Songti TC","PingFang TC",serif;
+    min-height:100vh;
+    padding-bottom:28px;
+  }
+  .wrap{max-width:520px; margin:0 auto; padding:0 10px;}
+
+  /* ---- Header / date nav ---- */
+  header{
+    padding:22px 4px 14px;
+    text-align:center;
+  }
+  .nav-row{
+    display:flex; align-items:center; justify-content:center; gap:18px;
+    margin-bottom:6px;
+  }
+  .nav-btn{
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    color:var(--ink-dim);
+    width:36px; height:36px;
+    border-radius:50%;
+    font-size:16px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    font-family:inherit;
+    user-select:none;
+  }
+  .nav-btn:active{background:var(--panel-line); color:var(--ink);}
+  .date-block{min-width:190px;}
+  .weekday{
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:11px; letter-spacing:4px; text-transform:uppercase;
+    color:var(--ink-dim); margin-bottom:2px;
+  }
+  .date-num{
+    font-size:30px; font-weight:600; letter-spacing:1px;
+  }
+  .today-pill{
+    display:inline-block; margin-top:6px;
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:10px; letter-spacing:2px; text-transform:uppercase;
+    color:var(--bg); background:var(--ink-dim);
+    padding:3px 10px; border-radius:20px;
+    cursor:pointer; border:none;
+  }
+  .today-pill.is-today{background:transparent; color:var(--panel-line); pointer-events:none;}
+
+  /* ---- Names header ---- */
+  .kids-head{
+    display:grid; grid-template-columns:26px 1fr 1fr; gap:8px;
+    margin:18px 0 8px;
+  }
+  .kid-name{
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:13px; font-weight:700; letter-spacing:2px; text-transform:uppercase;
+    text-align:center;
+    padding-bottom:6px;
+    border-bottom:2px solid;
+  }
+  .kid-name.honn{color:var(--honn); border-color:var(--honn);}
+  .kid-name.chenn{color:var(--chenn); border-color:var(--chenn);}
+
+  /* ---- Pickup / dropoff row ---- */
+  .pickup-row{
+    display:grid; grid-template-columns:26px 1fr 1fr; gap:8px;
+    margin-bottom:14px;
+  }
+  .pickup-card{
+    border-radius:12px; padding:10px 6px; text-align:center;
+    font-family:"Helvetica Neue",Arial,sans-serif;
+  }
+  .pickup-card.honn{background:var(--honn-soft); border:1px solid var(--honn);}
+  .pickup-card.chenn{background:var(--chenn-soft); border:1px solid var(--chenn);}
+  .pickup-label{
+    font-size:9px; letter-spacing:1.5px; text-transform:uppercase; opacity:.75; margin-bottom:3px;
+  }
+  .pickup-card.honn .pickup-label{color:var(--honn);}
+  .pickup-card.chenn .pickup-label{color:var(--chenn);}
+  .pickup-time{font-size:14px; font-weight:700; letter-spacing:.3px;}
+
+  /* ---- Timeline ---- */
+  .timeline-wrap{
+    display:grid; grid-template-columns:26px 1fr 1fr; gap:8px;
+    position:relative;
+  }
+  .hour-gutter{position:relative;}
+  .hour-mark{
+    position:absolute; left:0; right:0;
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:9px; color:var(--ink-dim);
+    transform:translateY(-50%);
+    text-align:right; padding-right:3px;
+  }
+  .hour-line{
+    position:absolute; left:26px; right:0;
+    border-top:1px dashed var(--panel-line);
+  }
+  .col{position:relative;}
+  .period{
+    position:absolute; left:0; right:0;
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-left:3px solid var(--line-color, var(--panel-line));
+    border-radius:8px;
+    padding:4px 7px;
+    overflow:hidden;
+  }
+  .period.honn{--line-color:var(--honn);}
+  .period.chenn{--line-color:var(--chenn);}
+  .period .time{
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:9.5px; font-weight:700; letter-spacing:.2px;
+    margin-bottom:1px;
+  }
+  .period.honn .time{color:var(--honn);}
+  .period.chenn .time{color:var(--chenn);}
+  .period .subject{
+    font-size:13.5px; font-weight:600; line-height:1.15;
+  }
+  .period .room{
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:9.5px; color:var(--ink-dim); margin-top:1px;
+  }
+  .period.compact{
+    display:flex; align-items:center; gap:5px;
+    padding:2px 7px;
+  }
+  .period.compact .time{margin:0; white-space:nowrap;}
+  .period.compact .subject{font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .period.compact .room{margin:0; white-space:nowrap;}
+
+  .period.break{
+    background:transparent; border-style:dashed; border-width:1px; border-left-width:1px;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    padding:2px 6px;
+  }
+  .period.break .subject{
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:9px; letter-spacing:1.2px; text-transform:uppercase;
+    color:var(--ink-dim);
+  }
+  .period.break .time{
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:9px; color:var(--ink-dim); font-weight:400; margin:0;
+  }
+
+  .period.now{background:var(--panel-line);}
+  .period.now::after{
+    content:"NOW";
+    position:absolute; top:3px; right:6px;
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:7px; letter-spacing:1px;
+    color:var(--bg); background:var(--ink);
+    padding:1px 5px; border-radius:8px;
+  }
+
+  .now-line{
+    position:absolute; left:0; right:0; height:0;
+    border-top:1.5px solid var(--now);
+    z-index:5;
+  }
+  .now-line::before{
+    content:"";
+    position:absolute; left:-4px; top:-4px;
+    width:8px; height:8px; border-radius:50%;
+    background:var(--now);
+  }
+  .now-line .now-label{
+    position:absolute; right:0; top:-16px;
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:8px; color:var(--now); font-weight:700;
+    background:var(--bg); padding:0 4px;
+  }
+
+  .no-school{
+    grid-column:1/-1;
+    text-align:center;
+    padding:60px 10px;
+    color:var(--ink-dim);
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:13px; letter-spacing:1px;
+  }
+  .col-empty{
+    color:var(--ink-dim); font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:12px; text-align:center; padding-top:20px;
+  }
+
+  footer{
+    text-align:center; margin-top:26px;
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-size:9px; letter-spacing:2px; text-transform:uppercase;
+    color:var(--panel-line);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="nav-row">
+      <button class="nav-btn" id="prevBtn" aria-label="前一天">‹</button>
+      <div class="date-block">
+        <div class="weekday" id="weekdayLabel"></div>
+        <div class="date-num" id="dateLabel"></div>
+      </div>
+      <button class="nav-btn" id="nextBtn" aria-label="後一天">›</button>
+    </div>
+    <button class="today-pill" id="todayBtn">回到今天</button>
+  </header>
+
+  <div class="kids-head" id="kidsHead">
+    <div></div>
+    <div class="kid-name honn">Honn</div>
+    <div class="kid-name chenn">Chenn</div>
+  </div>
+
+  <div class="pickup-row" id="pickupRow"></div>
+
+  <div class="timeline-wrap" id="timelineWrap"></div>
+
+  <footer>Family Schedule</footer>
+</div>
+
+<script>
+/* ===================== DATA ===================== */
+const HONN_REGULAR = {
+  pickup: ["08:15","14:30"],
+  periods: [
+    ["08:20","08:38","Advisory","F1"],
+    ["08:42","09:30","Band","G4"],
+    ["09:34","10:22","Science","C4"],
+    ["10:22","10:32","Break",null],
+    ["10:36","11:24","Soc Studies","B3"],
+    ["11:28","12:16","PE","Gym"],
+    ["12:16","12:46","Lunch",null],
+    ["12:50","13:38","Math","E5"],
+    ["13:42","14:30","Lang Arts","J5"],
+  ]
+};
+
+const HONN_MIN_DAY = {
+  pickup: ["08:15","12:45"],
+  periods: [
+    ["08:20","08:38","Advisory","F1"],
+    ["08:42","09:12","Band","G4"],
+    ["09:16","09:46","Science","C4"],
+    ["09:46","09:56","Break",null],
+    ["10:00","10:30","Soc Studies","B3"],
+    ["10:34","11:05","PE","Gym"],
+    ["11:09","11:39","Math","E5"],
+    ["11:39","12:09","Lunch",null],
+    ["12:13","12:45","Lang Arts","J5"],
+  ]
+};
+
+const HONN_BY_DAY = {1:HONN_REGULAR, 2:HONN_REGULAR, 3:HONN_REGULAR, 4:HONN_MIN_DAY, 5:HONN_REGULAR};
+
+const CHENN_BY_DAY = {
+  1:{
+    pickup:["09:25","15:30"],
+    periods:[
+      ["09:25","10:10","PE","GYM"],
+      ["10:30","11:20","English","A209"],
+      ["11:30","12:15","Guitar","F114"],
+      ["12:15","12:45","Lunch",null],
+      ["12:55","13:40","Mandarin","B225"],
+      ["13:50","14:35","Biology","B214"],
+      ["14:45","15:30","Geometry","P200"],
+    ]
+  },
+  2:{
+    pickup:["10:20","15:45"],
+    periods:[
+      ["10:20","11:55","English","A209"],
+      ["11:55","12:25","Lunch",null],
+      ["12:35","14:05","Mandarin","B225"],
+      ["14:15","15:45","Geometry","P200"],
+    ]
+  },
+  3:{
+    pickup:["08:30","14:40"],
+    periods:[
+      ["08:30","10:00","PE","GYM"],
+      ["10:00","10:40","Homeroom",null],
+      ["11:00","12:30","Guitar","F114"],
+      ["12:30","13:00","Lunch",null],
+      ["13:10","14:40","Biology","B214"],
+    ]
+  },
+  4:{
+    pickup:["10:20","15:45"],
+    periods:[
+      ["10:20","11:55","English","A209"],
+      ["11:55","12:25","Lunch",null],
+      ["12:35","14:05","Mandarin","B225"],
+      ["14:15","15:45","Geometry","P200"],
+    ]
+  },
+  5:{
+    pickup:["08:30","14:40"],
+    periods:[
+      ["08:30","10:00","PE","GYM"],
+      ["10:00","10:40","Homeroom",null],
+      ["11:00","12:30","Guitar","F114"],
+      ["12:30","13:00","Lunch",null],
+      ["13:10","14:40","Biology","B214"],
+    ]
+  }
+};
+
+/* ===================== STATE ===================== */
+let viewDate = new Date();
+viewDate.setHours(0,0,0,0);
+const realToday = new Date();
+realToday.setHours(0,0,0,0);
+
+const WEEKDAY_NAMES = ["星期日","星期一","星期二","星期三","星期四","星期五","星期六"];
+const PX_PER_MIN = 2.2;
+const MIN_H_NORMAL = 40;   // below this height -> compact single-line card
+const MIN_H_BREAK = 20;    // enforced minimum height for break/lunch pills
+
+function toMinutes(hhmm){
+  const [h,m] = hhmm.split(":").map(Number);
+  return h*60+m;
+}
+function fmtHHMM(mins){
+  const h = Math.floor(mins/60), m = mins%60;
+  return `${h}:${String(m).padStart(2,'0')}`;
+}
+function fmtDate(d){
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+function isBreakLike(subject){
+  return subject === "Lunch" || subject === "Break";
+}
+
+function buildPeriodEl(p, kidClass, dayStart, nowMinutes, isRealToday){
+  const [start,end,subject,room] = p;
+  const startM = toMinutes(start), endM = toMinutes(end);
+  const breakLike = isBreakLike(subject);
+
+  const top = (startM - dayStart) * PX_PER_MIN;
+  let height = (endM - startM) * PX_PER_MIN;
+  height = Math.max(height, breakLike ? MIN_H_BREAK : 24);
+
+  const compact = !breakLike && height < MIN_H_NORMAL;
+  const isNow = isRealToday && nowMinutes >= startM && nowMinutes < endM;
+
+  const cls = ["period", kidClass];
+  if(breakLike) cls.push("break");
+  else if(compact) cls.push("compact");
+  if(isNow) cls.push("now");
+
+  const el = document.createElement("div");
+  el.className = cls.join(" ");
+  el.style.top = top + "px";
+  el.style.height = height + "px";
+
+  if(breakLike){
+    el.innerHTML = `<span class="subject">${subject}</span><span class="time">${start}–${end}</span>`;
+  } else if(compact){
+    el.innerHTML = `<span class="time">${start}</span><span class="subject">${subject}</span>${room ? `<span class="room">${room}</span>` : ""}`;
+  } else {
+    el.innerHTML = `<div class="time">${start} - ${end}</div><div class="subject">${subject}</div>${room ? `<div class="room">${room}</div>` : ""}`;
+  }
+  return el;
+}
+
+function render(){
+  const dow = viewDate.getDay();
+  const isRealToday = viewDate.getTime() === realToday.getTime();
+  const now = new Date();
+  const nowMinutes = now.getHours()*60 + now.getMinutes();
+
+  document.getElementById("weekdayLabel").textContent = WEEKDAY_NAMES[dow];
+  document.getElementById("dateLabel").textContent = fmtDate(viewDate);
+
+  const todayBtn = document.getElementById("todayBtn");
+  if(isRealToday){
+    todayBtn.textContent = "今天";
+    todayBtn.classList.add("is-today");
+  } else {
+    todayBtn.textContent = "回到今天";
+    todayBtn.classList.remove("is-today");
+  }
+
+  const honnDay = HONN_BY_DAY[dow];
+  const chennDay = CHENN_BY_DAY[dow];
+
+  const pickupRow = document.getElementById("pickupRow");
+  const timelineWrap = document.getElementById("timelineWrap");
+  document.getElementById("kidsHead").style.display = "grid";
+
+  if(!honnDay && !chennDay){
+    pickupRow.innerHTML = "";
+    timelineWrap.innerHTML = `<div class="no-school">今天沒有課 &middot; No School</div>`;
+    return;
+  }
+
+  pickupRow.innerHTML = `
+    <div></div>
+    <div class="pickup-card honn">
+      <div class="pickup-label">到校 / 放學</div>
+      <div class="pickup-time">${honnDay ? honnDay.pickup.join(" – ") : "—"}</div>
+    </div>
+    <div class="pickup-card chenn">
+      <div class="pickup-label">接送時間</div>
+      <div class="pickup-time">${chennDay ? chennDay.pickup.join(" – ") : "—"}</div>
+    </div>
+  `;
+
+  // compute shared time range across both kids' periods
+  const allPeriods = [...(honnDay ? honnDay.periods : []), ...(chennDay ? chennDay.periods : [])];
+  const starts = allPeriods.map(p => toMinutes(p[0]));
+  const ends = allPeriods.map(p => toMinutes(p[1]));
+  let dayStart = Math.floor(Math.min(...starts)/60)*60;
+  let dayEnd = Math.ceil(Math.max(...ends)/60)*60;
+  const totalHeight = (dayEnd - dayStart) * PX_PER_MIN;
+
+  timelineWrap.innerHTML = "";
+
+  // hour gutter
+  const gutter = document.createElement("div");
+  gutter.className = "hour-gutter";
+  gutter.style.height = totalHeight + "px";
+  for(let m = dayStart; m <= dayEnd; m += 60){
+    const mark = document.createElement("div");
+    mark.className = "hour-mark";
+    mark.style.top = ((m - dayStart) * PX_PER_MIN) + "px";
+    mark.textContent = Math.floor(m/60);
+    gutter.appendChild(mark);
+    const line = document.createElement("div");
+    line.className = "hour-line";
+    line.style.top = ((m - dayStart) * PX_PER_MIN) + "px";
+    gutter.appendChild(line);
+  }
+  timelineWrap.appendChild(gutter);
+
+  // Honn column
+  const honnCol = document.createElement("div");
+  honnCol.className = "col";
+  honnCol.style.height = totalHeight + "px";
+  if(honnDay){
+    honnDay.periods.forEach(p => honnCol.appendChild(buildPeriodEl(p, "honn", dayStart, nowMinutes, isRealToday)));
+  } else {
+    honnCol.innerHTML = `<div class="col-empty">今天沒有課</div>`;
+  }
+  timelineWrap.appendChild(honnCol);
+
+  // Chenn column
+  const chennCol = document.createElement("div");
+  chennCol.className = "col";
+  chennCol.style.height = totalHeight + "px";
+  if(chennDay){
+    chennDay.periods.forEach(p => chennCol.appendChild(buildPeriodEl(p, "chenn", dayStart, nowMinutes, isRealToday)));
+  } else {
+    chennCol.innerHTML = `<div class="col-empty">今天沒有課</div>`;
+  }
+  timelineWrap.appendChild(chennCol);
+
+  // "now" line across full width
+  if(isRealToday && nowMinutes >= dayStart && nowMinutes <= dayEnd){
+    const nowLine = document.createElement("div");
+    nowLine.className = "now-line";
+    nowLine.style.top = ((nowMinutes - dayStart) * PX_PER_MIN) + "px";
+    nowLine.style.gridColumn = "1 / -1";
+    const label = document.createElement("span");
+    label.className = "now-label";
+    label.textContent = fmtHHMM(nowMinutes);
+    nowLine.appendChild(label);
+    timelineWrap.appendChild(nowLine);
+  }
+}
+
+document.getElementById("prevBtn").addEventListener("click", ()=>{
+  viewDate.setDate(viewDate.getDate()-1);
+  render();
+});
+document.getElementById("nextBtn").addEventListener("click", ()=>{
+  viewDate.setDate(viewDate.getDate()+1);
+  render();
+});
+document.getElementById("todayBtn").addEventListener("click", ()=>{
+  viewDate = new Date(realToday);
+  render();
+});
+
+render();
+setInterval(render, 60000);
+</script>
+</body>
+</html>

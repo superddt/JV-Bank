@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>今日課表</title>
 <style>
+  /* Calibre (latin display font). Install locally, otherwise falls back to Helvetica/Arial. */
+  @font-face{
+    font-family:"Calibre";
+    src:
+      local("Calibre"),
+      local("Calibre Regular");
+    font-weight:normal;
+    font-style:normal;
+  }
   :root{
     --bg:#12151c;
     --panel:#1a1e28;
@@ -16,6 +25,7 @@
     --chenn:#3ec6c6;
     --chenn-soft:#1c3535;
     --now:#ff5a5a;
+    --calibre:"Calibre","Helvetica Neue",Arial,sans-serif;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;}
@@ -52,7 +62,7 @@
   .nav-btn:active{background:var(--panel-line); color:var(--ink);}
   .date-block{min-width:190px;}
   .weekday{
-    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-family:var(--calibre);
     font-size:11px; letter-spacing:4px; text-transform:uppercase;
     color:var(--ink-dim); margin-bottom:2px;
   }
@@ -61,7 +71,7 @@
   }
   .today-pill{
     display:inline-block; margin-top:6px;
-    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-family:var(--calibre);
     font-size:10px; letter-spacing:2px; text-transform:uppercase;
     color:var(--bg); background:var(--ink-dim);
     padding:3px 10px; border-radius:20px;
@@ -75,7 +85,7 @@
     margin:18px 0 8px;
   }
   .kid-name{
-    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-family:var(--calibre);
     font-size:13px; font-weight:700; letter-spacing:2px; text-transform:uppercase;
     text-align:center;
     padding-bottom:6px;
@@ -91,7 +101,7 @@
   }
   .pickup-card{
     border-radius:12px; padding:10px 6px; text-align:center;
-    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-family:var(--calibre);
   }
   .pickup-card.honn{background:var(--honn-soft); border:1px solid var(--honn);}
   .pickup-card.chenn{background:var(--chenn-soft); border:1px solid var(--chenn);}
@@ -110,7 +120,7 @@
   .hour-gutter{position:relative;}
   .hour-mark{
     position:absolute; left:0; right:0;
-    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-family:var(--calibre);
     font-size:9px; color:var(--ink-dim);
     transform:translateY(-50%);
     text-align:right; padding-right:3px;
@@ -132,7 +142,7 @@
   .period.honn{--line-color:var(--honn);}
   .period.chenn{--line-color:var(--chenn);}
   .period .time{
-    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-family:var(--calibre);
     font-size:9.5px; font-weight:700; letter-spacing:.2px;
     margin-bottom:1px;
   }
@@ -140,9 +150,10 @@
   .period.chenn .time{color:var(--chenn);}
   .period .subject{
     font-size:13.5px; font-weight:600; line-height:1.15;
+    font-family:var(--calibre);
   }
   .period .room{
-    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-family:var(--calibre);
     font-size:9.5px; color:var(--ink-dim); margin-top:1px;
   }
   .period.compact{
@@ -159,12 +170,12 @@
     padding:2px 6px;
   }
   .period.break .subject{
-    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-family:var(--calibre);
     font-size:9px; letter-spacing:1.2px; text-transform:uppercase;
     color:var(--ink-dim);
   }
   .period.break .time{
-    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-family:var(--calibre);
     font-size:9px; color:var(--ink-dim); font-weight:400; margin:0;
   }
 
@@ -172,7 +183,7 @@
   .period.now::after{
     content:"NOW";
     position:absolute; top:3px; right:6px;
-    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-family:var(--calibre);
     font-size:7px; letter-spacing:1px;
     color:var(--bg); background:var(--ink);
     padding:1px 5px; border-radius:8px;
@@ -191,7 +202,7 @@
   }
   .now-line .now-label{
     position:absolute; right:0; top:-16px;
-    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-family:var(--calibre);
     font-size:8px; color:var(--now); font-weight:700;
     background:var(--bg); padding:0 4px;
   }
@@ -201,17 +212,17 @@
     text-align:center;
     padding:60px 10px;
     color:var(--ink-dim);
-    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-family:var(--calibre);
     font-size:13px; letter-spacing:1px;
   }
   .col-empty{
-    color:var(--ink-dim); font-family:"Helvetica Neue",Arial,sans-serif;
+    color:var(--ink-dim); font-family:var(--calibre);
     font-size:12px; text-align:center; padding-top:20px;
   }
 
   footer{
     text-align:center; margin-top:26px;
-    font-family:"Helvetica Neue",Arial,sans-serif;
+    font-family:var(--calibre);
     font-size:9px; letter-spacing:2px; text-transform:uppercase;
     color:var(--panel-line);
   }
@@ -358,6 +369,17 @@ function isBreakLike(subject){
   return subject === "Lunch" || subject === "Break";
 }
 
+/* Course -> emoji map */
+const SUBJECT_EMOJI = {
+  "Advisory":"📋", "Band":"🎺", "Science":"🔬", "Soc Studies":"🌍",
+  "PE":"🏀", "Math":"📐", "Lang Arts":"📚", "English":"🇬🇧",
+  "Guitar":"🎸", "Mandarin":"🈶", "Biology":"🧬", "Geometry":"📏",
+  "Homeroom":"🏫", "Lunch":"🍱", "Break":"⏳"
+};
+function withEmoji(subject){
+  return (SUBJECT_EMOJI[subject] ? SUBJECT_EMOJI[subject] + " " : "") + subject;
+}
+
 function buildPeriodEl(p, kidClass, dayStart, nowMinutes, isRealToday){
   const [start,end,subject,room] = p;
   const startM = toMinutes(start), endM = toMinutes(end);
@@ -381,11 +403,11 @@ function buildPeriodEl(p, kidClass, dayStart, nowMinutes, isRealToday){
   el.style.height = height + "px";
 
   if(breakLike){
-    el.innerHTML = `<span class="subject">${subject}</span><span class="time">${start}–${end}</span>`;
+    el.innerHTML = `<span class="subject">${withEmoji(subject)}</span><span class="time">${start}–${end}</span>`;
   } else if(compact){
-    el.innerHTML = `<span class="time">${start}</span><span class="subject">${subject}</span>${room ? `<span class="room">${room}</span>` : ""}`;
+    el.innerHTML = `<span class="time">${start}</span><span class="subject">${withEmoji(subject)}</span>${room ? `<span class="room">${room}</span>` : ""}`;
   } else {
-    el.innerHTML = `<div class="time">${start} - ${end}</div><div class="subject">${subject}</div>${room ? `<div class="room">${room}</div>` : ""}`;
+    el.innerHTML = `<div class="time">${start} - ${end}</div><div class="subject">${withEmoji(subject)}</div>${room ? `<div class="room">${room}</div>` : ""}`;
   }
   return el;
 }

@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>今日課表</title>
 <style>
-  /* Calibre (latin display font). Install locally, otherwise falls back to Helvetica/Arial. */
+  /* Roboto (latin display font). Install locally, otherwise falls back to Calibre/Helvetica/Arial. */
   @font-face{
-    font-family:"Calibre";
+    font-family:"Roboto";
     src:
-      local("Calibre"),
-      local("Calibre Regular");
+      local("Roboto"),
+      local("Roboto Regular");
     font-weight:normal;
     font-style:normal;
   }
@@ -25,7 +25,7 @@
     --chenn:#3ec6c6;
     --chenn-soft:#1c3535;
     --now:#ff5a5a;
-    --calibre:"Calibre","Helvetica Neue",Arial,sans-serif;
+    --calibre:"Roboto","Helvetica Neue",Arial,sans-serif;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;}
@@ -67,6 +67,7 @@
     color:var(--ink-dim); margin-bottom:2px;
   }
   .date-num{
+    font-family:var(--calibre);
     font-size:30px; font-weight:600; letter-spacing:1px;
   }
   .today-pill{
@@ -152,10 +153,28 @@
     font-size:13.5px; font-weight:600; line-height:1.15;
     font-family:var(--calibre);
   }
+  /* Large course-emoji background watermark (bottom-right, bleed-cropped) */
+  .period > :not(.emoji){position:relative; z-index:1;}
+  .period .emoji{
+    position:absolute;
+    line-height:.85;
+    z-index:0;
+    user-select:none;
+    pointer-events:none;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,.35));
+  }
   .period .room{
     font-family:var(--calibre);
     font-size:9.5px; color:var(--ink-dim); margin-top:1px;
   }
+  /* block (tall course square): big emoji bleeding out of the bottom-right corner */
+  .period.block{border-left:3px solid var(--line-color, var(--panel-line));}
+  .period.block .emoji{
+    font-size:66px;
+    right:-8px; bottom:-12px;
+    opacity:.32;
+  }
+  /* compact single-line card layout + smaller emoji on the right */
   .period.compact{
     display:flex; align-items:center; gap:5px;
     padding:2px 7px;
@@ -163,12 +182,19 @@
   .period.compact .time{margin:0; white-space:nowrap;}
   .period.compact .subject{font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .period.compact .room{margin:0; white-space:nowrap;}
-
+  .period.compact .emoji{
+    font-size:26px;
+    top:50%; right:2px;
+    transform:translateY(-52%);
+    opacity:.4;
+  }
+  /* break/lunch pill */
   .period.break{
     background:transparent; border-style:dashed; border-width:1px; border-left-width:1px;
     display:flex; align-items:center; justify-content:center; gap:6px;
     padding:2px 6px;
   }
+  .period.break .emoji{font-size:22px; bottom:-4px; right:-3px; opacity:.45;}
   .period.break .subject{
     font-family:var(--calibre);
     font-size:9px; letter-spacing:1.2px; text-transform:uppercase;
@@ -376,10 +402,6 @@ const SUBJECT_EMOJI = {
   "Guitar":"🎸", "Mandarin":"🈶", "Biology":"🧬", "Geometry":"📏",
   "Homeroom":"🏫", "Lunch":"🍱", "Break":"⏳"
 };
-function withEmoji(subject){
-  return (SUBJECT_EMOJI[subject] ? SUBJECT_EMOJI[subject] + " " : "") + subject;
-}
-
 function buildPeriodEl(p, kidClass, dayStart, nowMinutes, isRealToday){
   const [start,end,subject,room] = p;
   const startM = toMinutes(start), endM = toMinutes(end);
@@ -395,6 +417,7 @@ function buildPeriodEl(p, kidClass, dayStart, nowMinutes, isRealToday){
   const cls = ["period", kidClass];
   if(breakLike) cls.push("break");
   else if(compact) cls.push("compact");
+  else cls.push("block");   // tall course square
   if(isNow) cls.push("now");
 
   const el = document.createElement("div");
@@ -402,12 +425,16 @@ function buildPeriodEl(p, kidClass, dayStart, nowMinutes, isRealToday){
   el.style.top = top + "px";
   el.style.height = height + "px";
 
+  const emojiGlyph = SUBJECT_EMOJI[subject];
+  const bgEmoji = emojiGlyph ? `<span class="emoji" aria-hidden="true">${emojiGlyph}</span>` : "";
+  const textCls = subject => `${subject}`;
+
   if(breakLike){
-    el.innerHTML = `<span class="subject">${withEmoji(subject)}</span><span class="time">${start}–${end}</span>`;
+    el.innerHTML = `${bgEmoji}<span class="subject">${textCls(subject)}</span><span class="time">${start}–${end}</span>`;
   } else if(compact){
-    el.innerHTML = `<span class="time">${start}</span><span class="subject">${withEmoji(subject)}</span>${room ? `<span class="room">${room}</span>` : ""}`;
+    el.innerHTML = `<span class="time">${start}</span><span class="subject">${textCls(subject)}</span>${room ? `<span class="room">${room}</span>` : ""}${bgEmoji}`;
   } else {
-    el.innerHTML = `<div class="time">${start} - ${end}</div><div class="subject">${withEmoji(subject)}</div>${room ? `<div class="room">${room}</div>` : ""}`;
+    el.innerHTML = `${bgEmoji}<div class="time">${start} - ${end}</div><div class="subject">${textCls(subject)}</div>${room ? `<div class="room">${room}</div>` : ""}`;
   }
   return el;
 }
